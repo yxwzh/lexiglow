@@ -1,4 +1,10 @@
-import type { TranslationResult, TranslatorSettings } from "./types";
+import type {
+  SentenceAnalysisResult,
+  SentenceHighlight,
+  SentenceHighlightCategory,
+  TranslationResult,
+  TranslatorSettings,
+} from "./types";
 
 export const DEFAULT_TRANSLATOR_SETTINGS: TranslatorSettings = {
   providerBaseUrl: "https://api.deepseek.com/v1",
@@ -110,6 +116,85 @@ export function parseLlmTranslationResponse(payload: string): {
   };
 }
 
+const HIGHLIGHT_CATEGORIES = new Set<SentenceHighlightCategory>([
+  "subject",
+  "predicate",
+  "nonfinite",
+  "conjunction",
+  "relative",
+  "preposition",
+]);
+
+function sanitizeAnalysisHighlights(input: unknown): SentenceHighlight[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const text = cleanModelOutput(
+        typeof (item as { text?: unknown }).text === "string" ? (item as { text: string }).text : "",
+      );
+      const category =
+        typeof (item as { category?: unknown }).category === "string"
+          ? ((item as { category: string }).category as SentenceHighlightCategory)
+          : null;
+
+      if (!text || !category || !HIGHLIGHT_CATEGORIES.has(category)) {
+        return null;
+      }
+
+      return { text, category };
+    })
+    .filter((item): item is SentenceHighlight => Boolean(item));
+}
+
+export function parseSentenceAnalysisResponse(payload: string): Omit<
+  SentenceAnalysisResult,
+  "provider" | "cached"
+> {
+  const content = stripCodeFence(payload);
+  const jsonStart = content.indexOf("{");
+  const jsonEnd = content.lastIndexOf("}");
+
+  if (jsonStart < 0 || jsonEnd <= jsonStart) {
+    throw new Error("Sentence analysis response was not valid JSON.");
+  }
+
+  const parsed = JSON.parse(content.slice(jsonStart, jsonEnd + 1)) as {
+    translation?: unknown;
+    structure?: unknown;
+    analysisSteps?: unknown;
+    highlights?: unknown;
+  };
+
+  const translation = cleanModelOutput(
+    typeof parsed.translation === "string" ? parsed.translation : "",
+  );
+  const structure = cleanModelOutput(typeof parsed.structure === "string" ? parsed.structure : "");
+  const analysisSteps = Array.isArray(parsed.analysisSteps)
+    ? parsed.analysisSteps
+        .map((step) => cleanModelOutput(typeof step === "string" ? step : ""))
+        .filter(Boolean)
+    : [];
+  const highlights = sanitizeAnalysisHighlights(parsed.highlights);
+
+  if (!translation || !structure || !analysisSteps.length) {
+    throw new Error("Sentence analysis response was incomplete.");
+  }
+
+  return {
+    translation,
+    structure,
+    analysisSteps,
+    highlights,
+  };
+}
+
 export async function translateWithLlm({
   surface,
   contextText,
@@ -180,6 +265,67 @@ export async function translateWithLlm({
   return {
     translation: parsed.translation,
     sentenceTranslation: parsed.sentenceTranslation,
+    provider: "deepseek-chat",
+    cached: false,
+  };
+}
+
+export async function analyzeSentenceWithLlm({
+  text,
+  settings,
+}: {
+  text: string;
+  settings: TranslatorSettings;
+}): Promise<SentenceAnalysisResult> {
+  if (!settings.apiKey.trim()) {
+    throw new Error("请先在设置页填写 LLM API Key。");
+  }
+
+  const endpoint = `${settings.providerBaseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const sentence = trimContext(text);
+  const body = {
+    model: settings.providerModel,
+    temperature: 0.2,
+    max_tokens: 420,
+    messages: [
+      {
+        role: "system",
+        content:
+          'You are an English sentence analysis tutor for Chinese students. Use a Tian Jing style exam-prep method: 1) first use conjunctions, relative words, and punctuation to cut the sentence into layers; 2) then locate the main clause subject and predicate and state the sentence backbone; 3) then explain nonfinite verbs, prepositional phrases, appositives, and subordinate clauses as branches attached to the backbone; 4) finally give a smooth Chinese translation in natural order. The explanation should feel like a teacher walking through a sentence, practical and clear, not vague and not too academic. Return strict JSON only with keys: translation, structure, analysisSteps, highlights. translation is full Chinese translation. structure is one short Chinese summary of the sentence backbone. analysisSteps is an array of exactly 4 Chinese steps, and the four steps should roughly correspond to 切层次 / 抓主干 / 拆枝叶 / 顺译. highlights is an array of exact single-word tokens copied from the original sentence with category from [subject, predicate, nonfinite, conjunction, relative, preposition]. You must include at least one predicate highlight whenever possible. Prefer the most important words only. No markdown or extra text.',
+      },
+      {
+        role: "user",
+        content: `sentence: ${sentence}`,
+      },
+    ],
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        choices?: Array<{ message?: { content?: string } }>;
+        error?: { message?: string };
+      }
+    | null;
+
+  if (!response.ok) {
+    const message = readLlmError(payload);
+    throw new Error(message || `LLM analysis request failed: ${response.status}`);
+  }
+
+  const content = payload?.choices?.[0]?.message?.content ?? "";
+  const parsed = parseSentenceAnalysisResponse(content);
+
+  return {
+    ...parsed,
     provider: "deepseek-chat",
     cached: false,
   };

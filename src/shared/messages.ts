@@ -1,4 +1,9 @@
-import type { LexiconLookupResult, TranslatorSettings, UserSettings } from "./types";
+import type {
+  LexiconLookupResult,
+  SentenceAnalysisResult,
+  TranslatorSettings,
+  UserSettings,
+} from "./types";
 
 export type TranslationProviderChoice = "google" | "llm";
 
@@ -72,6 +77,13 @@ export interface TranslateWordMessage {
   };
 }
 
+export interface AnalyzeSelectionMessage {
+  type: "ANALYZE_SELECTION";
+  payload: {
+    text: string;
+  };
+}
+
 export type RuntimeMessage =
   | LookupWordMessage
   | SetWordMasteredMessage
@@ -82,7 +94,8 @@ export type RuntimeMessage =
   | GetSettingsMessage
   | GetTranslatorSettingsMessage
   | SaveTranslatorSettingsMessage
-  | TranslateWordMessage;
+  | TranslateWordMessage
+  | AnalyzeSelectionMessage;
 
 export interface LookupWordResponse {
   ok: boolean;
@@ -99,5 +112,11 @@ export interface SettingsResponse {
 export interface TranslatorSettingsResponse {
   ok: boolean;
   settings?: TranslatorSettings;
+  error?: string;
+}
+
+export interface SentenceAnalysisResponse {
+  ok: boolean;
+  result?: SentenceAnalysisResult;
   error?: string;
 }

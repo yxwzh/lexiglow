@@ -1,5 +1,6 @@
 import { lookupRank, resolveLookupLemma } from "../shared/lexicon";
 import type {
+  AnalyzeSelectionMessage,
   GetSettingsMessage,
   GetTranslatorSettingsMessage,
   LookupWordMessage,
@@ -30,11 +31,17 @@ import {
   setCachedTranslation,
 } from "../shared/storage";
 import {
+  analyzeSentenceWithLlm,
   isTranslatorFallbackError,
   translateWithGoogle,
   translateWithLlm,
 } from "../shared/translator";
-import type { CacheEntry, LexiconLookupResult, TranslationResult } from "../shared/types";
+import type {
+  CacheEntry,
+  LexiconLookupResult,
+  SentenceAnalysisResult,
+  TranslationResult,
+} from "../shared/types";
 
 const inFlightTranslations = new Map<string, Promise<TranslationResult>>();
 
@@ -196,6 +203,18 @@ async function handleTranslateWord(message: TranslateWordMessage): Promise<Lexic
   }
 }
 
+async function handleAnalyzeSelection(
+  message: AnalyzeSelectionMessage,
+): Promise<SentenceAnalysisResult> {
+  const text = message.payload.text.trim();
+  const translatorSettings = await getTranslatorSettings();
+
+  return analyzeSentenceWithLlm({
+    text,
+    settings: translatorSettings,
+  });
+}
+
 async function handleSetMastered(message: SetWordMasteredMessage) {
   const settings = await getSettings();
   const next = setWordMastered(settings, message.payload.lemma);
@@ -255,6 +274,9 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResp
         break;
       case "TRANSLATE_WORD":
         sendResponse({ ok: true, result: await handleTranslateWord(message) });
+        break;
+      case "ANALYZE_SELECTION":
+        sendResponse({ ok: true, result: await handleAnalyzeSelection(message) });
         break;
       case "SET_WORD_MASTERED":
         sendResponse(await handleSetMastered(message));

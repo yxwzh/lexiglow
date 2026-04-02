@@ -20,6 +20,28 @@ export interface TranslationResult {
   cached: boolean;
 }
 
+export type SentenceHighlightCategory =
+  | "subject"
+  | "predicate"
+  | "nonfinite"
+  | "conjunction"
+  | "relative"
+  | "preposition";
+
+export interface SentenceHighlight {
+  text: string;
+  category: SentenceHighlightCategory;
+}
+
+export interface SentenceAnalysisResult {
+  translation: string;
+  structure: string;
+  analysisSteps: string[];
+  highlights: SentenceHighlight[];
+  provider: string;
+  cached: boolean;
+}
+
 export interface LexiconLookupResult {
   lemma: string;
   surface: string;

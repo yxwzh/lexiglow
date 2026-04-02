@@ -2,12 +2,17 @@ import { lookupRank, resolveLookupLemma } from "../shared/lexicon";
 import type {
   LookupWordResponse,
   RuntimeMessage,
+  SentenceAnalysisResponse,
   SettingsResponse,
   TranslationProviderChoice,
 } from "../shared/messages";
 import { DEFAULT_SETTINGS, resolveWordFlags } from "../shared/settings";
 import { getSettings } from "../shared/storage";
-import type { LexiconLookupResult, UserSettings } from "../shared/types";
+import type {
+  LexiconLookupResult,
+  SentenceAnalysisResult,
+  UserSettings,
+} from "../shared/types";
 
 const HOVER_DELAY_MS = 320;
 const HIDE_DELAY_MS = 1200;
@@ -31,6 +36,13 @@ const TOOLTIP_STYLE = `
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     backdrop-filter: blur(12px);
     pointer-events: auto;
+  }
+  .wordwise-card[data-mode="analysis"] {
+    max-width: 520px;
+  }
+  .wordwise-word-view[data-visible="false"],
+  .wordwise-analysis-view[data-visible="false"] {
+    display: none;
   }
   .wordwise-surface {
     font-size: 16px;
@@ -70,6 +82,13 @@ const TOOLTIP_STYLE = `
   .wordwise-hint[data-visible="false"] {
     display: none;
   }
+  .wordwise-hint[data-loading="true"]::after,
+  .wordwise-analysis-status[data-loading="true"]::after {
+    content: " …";
+    display: inline-block;
+    vertical-align: baseline;
+    animation: wordwise-fade 1s ease-in-out infinite;
+  }
   .wordwise-actions {
     display: flex;
     gap: 8px;
@@ -105,6 +124,150 @@ const TOOLTIP_STYLE = `
   .wordwise-button--secondary:hover {
     background: rgba(20, 33, 61, 0.14);
   }
+  .wordwise-analysis-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .wordwise-analysis-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #10213a;
+    font-family: inherit;
+  }
+  .wordwise-analysis-status {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #6b7280;
+    margin-bottom: 10px;
+    font-family: inherit;
+  }
+  .wordwise-analysis-section {
+    margin-bottom: 14px;
+  }
+  .wordwise-analysis-loading {
+    display: none;
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(20, 33, 61, 0.05);
+  }
+  .wordwise-analysis-loading[data-visible="true"] {
+    display: block;
+  }
+  .wordwise-analysis-loading-title {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #334155;
+    font-family: inherit;
+    margin-bottom: 8px;
+  }
+  .wordwise-analysis-loading-steps {
+    display: grid;
+    gap: 6px;
+  }
+  .wordwise-analysis-loading-step {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #475569;
+    font-family: inherit;
+    opacity: 0.72;
+    animation: wordwise-fade 1.2s ease-in-out infinite;
+  }
+  .wordwise-analysis-loading-step:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .wordwise-analysis-loading-step:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  .wordwise-analysis-loading-step:nth-child(4) {
+    animation-delay: 0.45s;
+  }
+  .wordwise-analysis-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .wordwise-analysis-source,
+  .wordwise-analysis-translation,
+  .wordwise-analysis-structure {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #1f2937;
+    font-family: inherit;
+  }
+  .wordwise-analysis-steps {
+    margin: 0;
+    padding-left: 18px;
+    color: #1f2937;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .wordwise-analysis-steps li {
+    margin-bottom: 6px;
+    line-height: 1.65;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  .wordwise-analysis-legend {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .wordwise-analysis-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .wordwise-mark {
+    padding: 1px 4px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+  .wordwise-mark--subject,
+  .wordwise-pill--subject {
+    background: rgba(59, 130, 246, 0.16);
+    color: #1d4ed8;
+  }
+  .wordwise-mark--predicate,
+  .wordwise-pill--predicate {
+    background: rgba(249, 115, 22, 0.16);
+    color: #c2410c;
+  }
+  .wordwise-mark--nonfinite,
+  .wordwise-pill--nonfinite {
+    background: rgba(168, 85, 247, 0.16);
+    color: #7c3aed;
+  }
+  .wordwise-mark--conjunction,
+  .wordwise-pill--conjunction {
+    background: rgba(16, 185, 129, 0.18);
+    color: #047857;
+  }
+  .wordwise-mark--relative,
+  .wordwise-pill--relative {
+    background: rgba(236, 72, 153, 0.16);
+    color: #be185d;
+  }
+  .wordwise-mark--preposition,
+  .wordwise-pill--preposition {
+    background: rgba(245, 158, 11, 0.18);
+    color: #b45309;
+  }
+  @keyframes wordwise-fade {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
 `;
 
 const HIGHLIGHT_STYLE = `
@@ -114,12 +277,19 @@ const HIGHLIGHT_STYLE = `
   }
 `;
 
+
 interface HoverContext {
   surface: string;
   rect: DOMRect;
   requestId: number;
   forceTranslate?: boolean;
   contextText?: string;
+}
+
+interface SentenceSelectionContext {
+  text: string;
+  rect: DOMRect;
+  requestId: number;
 }
 
 interface WordAtOffset {
@@ -212,6 +382,183 @@ function extractWordAtOffset(text: string, offset: number): WordAtOffset | null 
   return { surface, start, end };
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function waitForPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+function normalizeHighlightWord(value: string): string {
+  return value.toLowerCase().replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "");
+}
+
+function isAnalyzableSelectionText(text: string): boolean {
+  const compact = text.replace(/\s+/g, " ").trim();
+
+  if (!compact || compact.length < 32 || compact.length > 360) {
+    return false;
+  }
+
+  if (/[\u4e00-\u9fff]/u.test(compact)) {
+    return false;
+  }
+
+  const words = compact.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) ?? [];
+  return words.length >= 7;
+}
+
+const HIGHLIGHT_CATEGORY_META = {
+  subject: { label: "主语", className: "wordwise-mark--subject", pillClassName: "wordwise-pill--subject" },
+  predicate: { label: "谓语", className: "wordwise-mark--predicate", pillClassName: "wordwise-pill--predicate" },
+  nonfinite: { label: "非谓语", className: "wordwise-mark--nonfinite", pillClassName: "wordwise-pill--nonfinite" },
+  conjunction: { label: "连词", className: "wordwise-mark--conjunction", pillClassName: "wordwise-pill--conjunction" },
+  relative: { label: "关系词", className: "wordwise-mark--relative", pillClassName: "wordwise-pill--relative" },
+  preposition: { label: "介词", className: "wordwise-mark--preposition", pillClassName: "wordwise-pill--preposition" },
+} as const;
+
+const CONNECTOR_WORDS = new Set([
+  "and", "but", "or", "yet", "so", "although", "though", "because", "if", "while",
+  "when", "whereas", "unless", "since", "once", "before", "after", "whether",
+]);
+const RELATIVE_WORDS = new Set([
+  "that", "which", "who", "whom", "whose", "where", "when", "why",
+]);
+const PREPOSITION_WORDS = new Set([
+  "in", "on", "at", "for", "with", "by", "to", "from", "of", "about", "over",
+  "under", "after", "before", "during", "through", "between", "against", "into",
+  "without", "within", "across",
+]);
+const PREDICATE_HINT_WORDS = new Set([
+  "is", "are", "was", "were", "be", "been", "being", "am",
+  "has", "have", "had", "do", "does", "did",
+  "can", "could", "may", "might", "must", "shall", "should", "will", "would",
+  "need", "needs", "needed", "show", "shows", "showed", "shown",
+  "suggest", "suggests", "suggested", "mean", "means", "meant",
+  "indicate", "indicates", "indicated", "argue", "argues", "argued",
+  "say", "says", "said", "make", "makes", "made", "find", "finds", "found",
+  "become", "becomes", "became", "remain", "remains", "remained",
+]);
+
+function looksLikeFinitePredicate(word: string): boolean {
+  if (PREDICATE_HINT_WORDS.has(word)) {
+    return true;
+  }
+
+  if (word.endsWith("ed") || word.endsWith("es")) {
+    return true;
+  }
+
+  return word.endsWith("s") && word.length > 3 && !word.endsWith("ss");
+}
+
+function buildHighlightCategoryMap(
+  result: SentenceAnalysisResult,
+  sentence?: string,
+): Map<string, keyof typeof HIGHLIGHT_CATEGORY_META> {
+  const highlightMap = new Map(
+    result.highlights.map((item) => [normalizeHighlightWord(item.text), item.category]),
+  );
+
+  for (const word of CONNECTOR_WORDS) {
+    if (!highlightMap.has(word)) {
+      highlightMap.set(word, "conjunction");
+    }
+  }
+
+  for (const word of RELATIVE_WORDS) {
+    if (!highlightMap.has(word)) {
+      highlightMap.set(word, "relative");
+    }
+  }
+
+  for (const word of PREPOSITION_WORDS) {
+    if (!highlightMap.has(word)) {
+      highlightMap.set(word, "preposition");
+    }
+  }
+
+  if (sentence) {
+    const tokens = sentence.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) ?? [];
+    let predicateCount = [...highlightMap.values()].filter((value) => value === "predicate").length;
+
+    for (const token of tokens) {
+      const normalized = normalizeHighlightWord(token);
+
+      if (
+        !normalized ||
+        CONNECTOR_WORDS.has(normalized) ||
+        RELATIVE_WORDS.has(normalized) ||
+        PREPOSITION_WORDS.has(normalized)
+      ) {
+        continue;
+      }
+
+      if (looksLikeFinitePredicate(normalized)) {
+        highlightMap.set(normalized, "predicate");
+        predicateCount += 1;
+      }
+
+      if (predicateCount >= 2) {
+        break;
+      }
+    }
+  }
+
+  return highlightMap;
+}
+
+function renderSentenceMarkup(result: SentenceAnalysisResult, sentence: string): string {
+  const highlightMap = buildHighlightCategoryMap(result, sentence);
+  const tokens = sentence.match(/[A-Za-z]+(?:'[A-Za-z]+)?|[^A-Za-z]+/g) ?? [sentence];
+
+  return tokens
+    .map((token) => {
+      const normalized = normalizeHighlightWord(token);
+      const category = normalized ? highlightMap.get(normalized) : null;
+
+      if (!category) {
+        return escapeHtml(token);
+      }
+
+      return `<span class="wordwise-mark ${HIGHLIGHT_CATEGORY_META[category].className}">${escapeHtml(token)}</span>`;
+    })
+    .join("");
+}
+
+function renderLegendMarkup(result: SentenceAnalysisResult, sentence: string): string {
+  const highlightMap = buildHighlightCategoryMap(result, sentence);
+  const tokens = sentence.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) ?? [];
+  const categories = [
+    ...new Set(
+      tokens
+        .map((token) => highlightMap.get(normalizeHighlightWord(token)))
+        .filter((category): category is keyof typeof HIGHLIGHT_CATEGORY_META => Boolean(category)),
+    ),
+  ];
+
+  if (!categories.length) {
+    return "";
+  }
+
+  return categories
+    .map((category) => {
+      const meta = HIGHLIGHT_CATEGORY_META[category];
+      return `<span class="wordwise-analysis-pill ${meta.pillClassName}">${meta.label}</span>`;
+    })
+    .join("");
+}
+
 function createTooltipRoot() {
   const host = document.createElement("div");
   host.style.position = "fixed";
@@ -236,6 +583,7 @@ function createTooltipRoot() {
   const hintEl = document.createElement("div");
   hintEl.className = "wordwise-hint";
   hintEl.dataset.visible = "true";
+  hintEl.dataset.loading = "false";
   hintEl.textContent = "默认使用 Google 翻译，不满意可切换到 LLM。";
 
   const actionsEl = document.createElement("div");
@@ -266,16 +614,103 @@ function createTooltipRoot() {
   secondaryTranslationEl.className = "wordwise-secondary-translation";
   secondaryTranslationEl.dataset.visible = "false";
 
+  const wordView = document.createElement("div");
+  wordView.className = "wordwise-word-view";
+  wordView.dataset.visible = "true";
+
+  const analysisView = document.createElement("div");
+  analysisView.className = "wordwise-analysis-view";
+  analysisView.dataset.visible = "false";
+
+  const analysisHeader = document.createElement("div");
+  analysisHeader.className = "wordwise-analysis-header";
+
+  const analysisTitleEl = document.createElement("div");
+  analysisTitleEl.className = "wordwise-analysis-title";
+  analysisTitleEl.textContent = "长难句分析";
+
+  const analysisTriggerButton = document.createElement("button");
+  analysisTriggerButton.className = "wordwise-button";
+  analysisTriggerButton.textContent = "开始分析";
+
+  const analysisStatusEl = document.createElement("div");
+  analysisStatusEl.className = "wordwise-analysis-status";
+  analysisStatusEl.dataset.loading = "false";
+
+  const analysisLoadingEl = document.createElement("div");
+  analysisLoadingEl.className = "wordwise-analysis-loading";
+  analysisLoadingEl.dataset.visible = "false";
+  analysisLoadingEl.innerHTML = `
+    <div class="wordwise-analysis-loading-title">正在按田静风格拆句，请稍等</div>
+    <div class="wordwise-analysis-loading-steps">
+      <div class="wordwise-analysis-loading-step">1. 正在切层次，先找连接标志和关系词</div>
+      <div class="wordwise-analysis-loading-step">2. 正在抓主干，定位主句主语和谓语</div>
+      <div class="wordwise-analysis-loading-step">3. 正在拆枝叶，整理非谓语和修饰成分</div>
+      <div class="wordwise-analysis-loading-step">4. 正在顺译，组织自然的中文表达</div>
+    </div>
+  `;
+
+  const analysisSourceSection = document.createElement("section");
+  analysisSourceSection.className = "wordwise-analysis-section";
+  const analysisSourceLabel = document.createElement("div");
+  analysisSourceLabel.className = "wordwise-analysis-label";
+  analysisSourceLabel.textContent = "原句拆解";
+  const analysisSourceEl = document.createElement("div");
+  analysisSourceEl.className = "wordwise-analysis-source";
+  const analysisLegendEl = document.createElement("div");
+  analysisLegendEl.className = "wordwise-analysis-legend";
+  analysisSourceSection.append(analysisSourceLabel, analysisSourceEl, analysisLegendEl);
+
+  const analysisTranslationSection = document.createElement("section");
+  analysisTranslationSection.className = "wordwise-analysis-section";
+  const analysisTranslationLabel = document.createElement("div");
+  analysisTranslationLabel.className = "wordwise-analysis-label";
+  analysisTranslationLabel.textContent = "整句翻译";
+  const analysisTranslationEl = document.createElement("div");
+  analysisTranslationEl.className = "wordwise-analysis-translation";
+  analysisTranslationSection.append(analysisTranslationLabel, analysisTranslationEl);
+
+  const analysisStructureSection = document.createElement("section");
+  analysisStructureSection.className = "wordwise-analysis-section";
+  const analysisStructureLabel = document.createElement("div");
+  analysisStructureLabel.className = "wordwise-analysis-label";
+  analysisStructureLabel.textContent = "主干结构";
+  const analysisStructureEl = document.createElement("div");
+  analysisStructureEl.className = "wordwise-analysis-structure";
+  analysisStructureSection.append(analysisStructureLabel, analysisStructureEl);
+
+  const analysisStepsSection = document.createElement("section");
+  analysisStepsSection.className = "wordwise-analysis-section";
+  const analysisStepsLabel = document.createElement("div");
+  analysisStepsLabel.className = "wordwise-analysis-label";
+  analysisStepsLabel.textContent = "分析过程";
+  const analysisStepsEl = document.createElement("ol");
+  analysisStepsEl.className = "wordwise-analysis-steps";
+  analysisStepsSection.append(analysisStepsLabel, analysisStepsEl);
+
   translationEl.append(primaryTranslationEl, secondaryTranslationEl);
   actionsEl.append(llmButton, ignoreButton, button);
   metaEl.append(rankEl);
-  card.append(surfaceEl, hintEl, translationEl, actionsEl, metaEl);
+  wordView.append(surfaceEl, hintEl, translationEl, actionsEl, metaEl);
+  analysisHeader.append(analysisTitleEl, analysisTriggerButton);
+  analysisView.append(
+    analysisHeader,
+    analysisStatusEl,
+    analysisLoadingEl,
+    analysisSourceSection,
+    analysisTranslationSection,
+    analysisStructureSection,
+    analysisStepsSection,
+  );
+  card.append(wordView, analysisView);
   shadow.append(style, card);
   document.documentElement.append(host);
 
   return {
     host,
     card,
+    wordView,
+    analysisView,
     surfaceEl,
     hintEl,
     translationEl,
@@ -285,6 +720,15 @@ function createTooltipRoot() {
     button,
     llmButton,
     ignoreButton,
+    analysisTitleEl,
+    analysisTriggerButton,
+    analysisStatusEl,
+    analysisLoadingEl,
+    analysisSourceEl,
+    analysisLegendEl,
+    analysisTranslationEl,
+    analysisStructureEl,
+    analysisStepsEl,
   };
 }
 
@@ -358,7 +802,44 @@ function getSelectedWordContext(): HoverContext | null {
   };
 }
 
+function getSelectedSentenceContext(): SentenceSelectionContext | null {
+  const selection = window.getSelection();
+
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return null;
+  }
+
+  const range = selection.getRangeAt(0).cloneRange();
+  const text = selection.toString().replace(/\s+/g, " ").trim();
+
+  if (
+    !isAnalyzableSelectionText(text) ||
+    isIgnoredContainer(range.startContainer) ||
+    isIgnoredContainer(range.endContainer)
+  ) {
+    return null;
+  }
+
+  const rect = range.getBoundingClientRect();
+
+  if ((!rect.width && !rect.height) || !isFinite(rect.left) || !isFinite(rect.top)) {
+    return null;
+  }
+
+  selectionRequestId += 1;
+
+  return {
+    text,
+    rect,
+    requestId: selectionRequestId,
+  };
+}
+
 function isIgnoredContainer(node: Node): boolean {
+  if (node.getRootNode() === tooltip.host.shadowRoot) {
+    return true;
+  }
+
   const element = node.parentElement;
 
   if (!element) {
@@ -433,13 +914,24 @@ let tooltipHovered = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
 let activeTranslationRequestId = 0;
+let activeSelectionContext: SentenceSelectionContext | null = null;
+let selectionRequestId = 0;
+let analysisPanelOpen = false;
+let activeSentenceAnalysisRequestId = 0;
+let suppressSelectionTriggerUntil = 0;
 
 function hideTooltip() {
   tooltip.host.style.display = "none";
+  tooltip.card.dataset.mode = "word";
+  tooltip.wordView.dataset.visible = "true";
+  tooltip.analysisView.dataset.visible = "false";
   activeResult = null;
   activeAnchorRect = null;
   activeContext = null;
   activeTranslationRequestId += 1;
+  if (!analysisPanelOpen) {
+    activeSelectionContext = null;
+  }
 }
 
 function clearHighlights() {
@@ -497,6 +989,56 @@ function positionTooltip(rect: DOMRect) {
   tooltip.card.style.top = `${top}px`;
 }
 
+function hideSentenceAnalysis(options?: { preservePanel?: boolean }) {
+  if (!options?.preservePanel) {
+    tooltip.hintEl.dataset.loading = "false";
+    tooltip.analysisStatusEl.textContent = "";
+    tooltip.analysisStatusEl.dataset.loading = "false";
+    tooltip.analysisLoadingEl.dataset.visible = "false";
+    tooltip.analysisSourceEl.innerHTML = "";
+    tooltip.analysisLegendEl.innerHTML = "";
+    tooltip.analysisTranslationEl.textContent = "";
+    tooltip.analysisStructureEl.textContent = "";
+    tooltip.analysisStepsEl.innerHTML = "";
+    tooltip.analysisTriggerButton.style.display = "none";
+    analysisPanelOpen = false;
+    activeSelectionContext = null;
+  }
+
+  tooltip.analysisView.dataset.visible = "false";
+  tooltip.card.dataset.mode = "word";
+}
+
+function positionSentenceAnalysisButton(rect: DOMRect) {
+  positionTooltip(rect);
+}
+
+function positionSentenceAnalysisPanel(rect: DOMRect) {
+  positionTooltip(rect);
+}
+
+function showSentenceAnalysisButton(context: SentenceSelectionContext) {
+  activeSelectionContext = context;
+  activeAnchorRect = context.rect;
+  tooltip.card.dataset.mode = "analysis";
+  tooltip.wordView.dataset.visible = "false";
+  tooltip.analysisView.dataset.visible = "true";
+  tooltip.analysisTitleEl.textContent = "长难句分析";
+  tooltip.analysisTriggerButton.style.display = "inline-flex";
+  tooltip.analysisTriggerButton.textContent = "开始分析";
+  tooltip.analysisStatusEl.dataset.loading = "false";
+  tooltip.analysisStatusEl.textContent = "按田静常见讲法来拆：先切层次，再抓主干，再拆枝叶，最后顺译。";
+  tooltip.analysisLoadingEl.dataset.visible = "false";
+  tooltip.analysisSourceEl.textContent = context.text;
+  tooltip.analysisLegendEl.innerHTML = "";
+  tooltip.analysisTranslationEl.textContent = "";
+  tooltip.analysisStructureEl.textContent = "";
+  tooltip.analysisStepsEl.innerHTML = "";
+  tooltip.host.style.display = "block";
+  analysisPanelOpen = false;
+  positionSentenceAnalysisButton(context.rect);
+}
+
 function isPointerNearTooltip(clientX: number, clientY: number): boolean {
   if (tooltip.host.style.display !== "block") {
     return false;
@@ -544,12 +1086,16 @@ function isPointerInTooltipCorridor(clientX: number, clientY: number): boolean {
 }
 
 function renderTooltip(result: LexiconLookupResult, rect: DOMRect) {
+  tooltip.card.dataset.mode = "word";
+  tooltip.wordView.dataset.visible = "true";
+  tooltip.analysisView.dataset.visible = "false";
   tooltip.surfaceEl.textContent = result.surface;
   tooltip.primaryTranslationEl.textContent = result.translation ?? "";
   tooltip.secondaryTranslationEl.textContent = result.sentenceTranslation ?? "";
   tooltip.secondaryTranslationEl.dataset.visible = result.sentenceTranslation ? "true" : "false";
   tooltip.translationEl.dataset.visible = result.translation ? "true" : "false";
   tooltip.hintEl.dataset.visible = result.translation ? "false" : "true";
+  tooltip.hintEl.dataset.loading = "false";
   if (!result.translation) {
     tooltip.hintEl.textContent = "默认使用 Google 翻译，不满意可切换到 LLM。";
     tooltip.secondaryTranslationEl.dataset.visible = "false";
@@ -559,6 +1105,30 @@ function renderTooltip(result: LexiconLookupResult, rect: DOMRect) {
   activeAnchorRect = rect;
   positionTooltip(rect);
   activeResult = result;
+}
+
+function renderSentenceAnalysisPanel(
+  result: SentenceAnalysisResult,
+  context: SentenceSelectionContext,
+) {
+  tooltip.card.dataset.mode = "analysis";
+  tooltip.wordView.dataset.visible = "false";
+  tooltip.analysisView.dataset.visible = "true";
+  tooltip.analysisTitleEl.textContent = "长难句分析";
+  tooltip.analysisTriggerButton.style.display = "none";
+  tooltip.analysisStatusEl.textContent = "田静风拆法：先找连接标志切层次，再抓主句主干，再拆非谓语和修饰成分，最后顺译。";
+  tooltip.analysisStatusEl.dataset.loading = "false";
+  tooltip.analysisLoadingEl.dataset.visible = "false";
+  tooltip.analysisSourceEl.innerHTML = renderSentenceMarkup(result, context.text);
+  tooltip.analysisLegendEl.innerHTML = renderLegendMarkup(result, context.text);
+  tooltip.analysisTranslationEl.textContent = result.translation;
+  tooltip.analysisStructureEl.textContent = result.structure;
+  tooltip.analysisStepsEl.innerHTML = result.analysisSteps
+    .map((step) => `<li>${escapeHtml(step)}</li>`)
+    .join("");
+  tooltip.host.style.display = "block";
+  analysisPanelOpen = true;
+  positionSentenceAnalysisPanel(context.rect);
 }
 
 async function ensureSettings(): Promise<UserSettings> {
@@ -708,6 +1278,7 @@ async function requestTranslation(provider: TranslationProviderChoice) {
   tooltip.secondaryTranslationEl.textContent = "";
   tooltip.secondaryTranslationEl.dataset.visible = "false";
   tooltip.hintEl.dataset.visible = "true";
+  tooltip.hintEl.dataset.loading = "true";
   tooltip.hintEl.textContent = provider === "llm" ? "LLM 翻译中..." : "Google 翻译中...";
 
   let response: LookupWordResponse;
@@ -733,6 +1304,7 @@ async function requestTranslation(provider: TranslationProviderChoice) {
 
   if (!response.ok || !response.result) {
     if (translationRequestId === activeTranslationRequestId) {
+      tooltip.hintEl.dataset.loading = "false";
       tooltip.hintEl.textContent = "翻译暂不可用。";
     }
     return;
@@ -751,6 +1323,7 @@ async function requestTranslation(provider: TranslationProviderChoice) {
   if (response.result.translationProvider) {
     const providerLabel =
       response.result.translationProvider === "google-web" ? "Google" : "LLM";
+    tooltip.hintEl.dataset.loading = "false";
     tooltip.hintEl.textContent =
       providerLabel === "Google" ? "默认 Google 结果，不满意可试试 LLM。" : "已使用 LLM 翻译。";
   }
@@ -762,6 +1335,60 @@ async function requestTranslationForContext(
 ) {
   activeContext = context;
   await requestTranslation(provider);
+}
+
+async function requestSentenceAnalysis(context: SentenceSelectionContext) {
+  activeSentenceAnalysisRequestId += 1;
+  const requestId = activeSentenceAnalysisRequestId;
+  activeSelectionContext = context;
+  tooltip.card.dataset.mode = "analysis";
+  tooltip.wordView.dataset.visible = "false";
+  tooltip.analysisView.dataset.visible = "true";
+  tooltip.analysisTitleEl.textContent = "长难句分析";
+  tooltip.analysisTriggerButton.style.display = "none";
+  tooltip.analysisStatusEl.dataset.loading = "true";
+  tooltip.analysisStatusEl.textContent = "正在分析长难句";
+  tooltip.analysisLoadingEl.dataset.visible = "true";
+  tooltip.analysisSourceEl.textContent = context.text;
+  tooltip.analysisLegendEl.innerHTML = "";
+  tooltip.analysisTranslationEl.textContent = "";
+  tooltip.analysisStructureEl.textContent = "";
+  tooltip.analysisStepsEl.innerHTML = "";
+  tooltip.host.style.display = "block";
+  analysisPanelOpen = true;
+  positionSentenceAnalysisPanel(context.rect);
+  await waitForPaint();
+
+  let response: SentenceAnalysisResponse;
+
+  try {
+    response = await runtimeSend<SentenceAnalysisResponse>({
+      type: "ANALYZE_SELECTION",
+      payload: {
+        text: context.text,
+      },
+    });
+  } catch (error) {
+    if (isExtensionContextInvalidated(error)) {
+      hideTooltip();
+      return;
+    }
+
+    throw error;
+  }
+
+  if (requestId !== activeSentenceAnalysisRequestId) {
+    return;
+  }
+
+  if (!response.ok || !response.result) {
+    tooltip.analysisStatusEl.dataset.loading = "false";
+    tooltip.analysisLoadingEl.dataset.visible = "false";
+    tooltip.analysisStatusEl.textContent = response.error ?? "长难句分析暂不可用。";
+    return;
+  }
+
+  renderSentenceAnalysisPanel(response.result, context);
 }
 
 async function markWordForReview(surface: string): Promise<boolean> {
@@ -839,6 +1466,26 @@ function getHoverContext(clientX: number, clientY: number): HoverContext | null 
   };
 }
 
+function updateSelectionAnalysisTrigger() {
+  if (Date.now() < suppressSelectionTriggerUntil) {
+    return;
+  }
+
+  const context = getSelectedSentenceContext();
+
+  if (!context) {
+    const hadAnalysisOpen = analysisPanelOpen;
+    hideSentenceAnalysis();
+    if (hadAnalysisOpen) {
+      hideTooltip();
+    }
+    return;
+  }
+
+  hideTooltip();
+  showSentenceAnalysisButton(context);
+}
+
 tooltip.card.addEventListener("mouseenter", () => {
   tooltipHovered = true;
   if (hideTimer) {
@@ -849,6 +1496,20 @@ tooltip.card.addEventListener("mouseenter", () => {
 tooltip.card.addEventListener("mouseleave", () => {
   tooltipHovered = false;
   scheduleHide();
+});
+
+tooltip.analysisTriggerButton.addEventListener("mousedown", (event) => {
+  event.preventDefault();
+  suppressSelectionTriggerUntil = Date.now() + 800;
+});
+
+tooltip.analysisTriggerButton.addEventListener("click", async () => {
+  if (!activeSelectionContext) {
+    return;
+  }
+
+  suppressSelectionTriggerUntil = Date.now() + 1500;
+  await requestSentenceAnalysis(activeSelectionContext);
 });
 
 tooltip.button.addEventListener("click", async () => {
@@ -928,6 +1589,11 @@ document.addEventListener(
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
 
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      return;
+    }
+
     if (
       tooltip.host.style.display === "block" &&
       (isPointerNearTooltip(event.clientX, event.clientY) ||
@@ -965,6 +1631,30 @@ document.addEventListener(
   { passive: true },
 );
 
+document.addEventListener("mouseup", (event) => {
+  const path = event.composedPath();
+
+  if (path.includes(tooltip.host) || path.includes(tooltip.card)) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    updateSelectionAnalysisTrigger();
+  }, 0);
+});
+
+document.addEventListener("keyup", (event) => {
+  if (Date.now() < suppressSelectionTriggerUntil) {
+    return;
+  }
+
+  if (event.key === "Shift" || event.key.startsWith("Arrow")) {
+    window.setTimeout(() => {
+      updateSelectionAnalysisTrigger();
+    }, 0);
+  }
+});
+
 document.addEventListener("dblclick", () => {
   window.setTimeout(() => {
     const context = getSelectedWordContext();
@@ -994,15 +1684,27 @@ document.addEventListener("scroll", () => {
     }
   }
 
+  if (analysisPanelOpen && activeSelectionContext) {
+    positionSentenceAnalysisPanel(activeSelectionContext.rect);
+  } else if (activeSelectionContext) {
+    positionSentenceAnalysisButton(activeSelectionContext.rect);
+  }
+
   scheduleHighlightRefresh();
 });
 
 window.addEventListener("resize", () => {
+  if (analysisPanelOpen && activeSelectionContext) {
+    positionSentenceAnalysisPanel(activeSelectionContext.rect);
+  } else if (activeSelectionContext) {
+    positionSentenceAnalysisButton(activeSelectionContext.rect);
+  }
   scheduleHighlightRefresh();
 });
 
 window.addEventListener("blur", () => {
   hideTooltip();
+  hideSentenceAnalysis();
 });
 
 window.addEventListener("focus", () => {
@@ -1017,11 +1719,13 @@ document.addEventListener("pointerdown", (event) => {
   }
 
   hideTooltip();
+  hideSentenceAnalysis();
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideTooltip();
+    hideSentenceAnalysis();
   }
 });
 
