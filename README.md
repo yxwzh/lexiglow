@@ -1,9 +1,13 @@
-# LexiGlow
+# LexiGlow | 网页英语生词翻译与长难句分析
 
 ![LexiGlow banner](./assets/lexiglow-banner.svg)
 
 <p align="center">
-  Learn English where you already read: docs, articles, newsletters, timelines, and product pages.
+  在真实网页里学英语：悬浮翻译、生词追踪、双击复习、长难句拆解。
+</p>
+
+<p align="center">
+  Learn English on real web pages with hover translation, review tracking, and sentence breakdowns.
 </p>
 
 <p align="center">
@@ -17,167 +21,177 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/built%20with-TypeScript-2f74c0?style=flat-square" />
 </p>
 
-LexiGlow is a Chrome extension for context-based English learning. It keeps your reading flow intact, marks only the words you still need, and lets you decide when to stay lightweight and when to ask for deeper help.
+LexiGlow 是一个面向中文用户的 Chrome 英语阅读插件。它不会粗暴改写整页，也不会把你赶到另一个背词软件里，而是把“查词、复习、理解句子”这三件事直接嵌进你平时真的会看的网页里。
 
-The current experience is built around three natural reading moves:
+你可以把它理解成一个更适合真实阅读场景的英语助手：
 
-- Hover a highlighted word to get a fast Chinese translation
-- Double-click a word to pull it back into review when you realize you have forgotten it
-- Select any English text, from a single word to a full sentence, to get a default Google translation plus optional `LLM 翻译` and `长难句翻译`
+- 看到不认识的词，鼠标一停就能看中文
+- 以前学过但一时忘了，双击一下就重新加入复习
+- 遇到词组、句子、长难句，直接选中就能先看 Google，再决定要不要上 LLM 或做长难句分析
 
-It is intentionally low-intrusion:
+## 为什么这个项目值得关注
 
-- no DOM wrapping of page text
-- no layout-breaking rewrites
-- no mandatory full-page translation
-- just soft highlighting, one tooltip system, and progressive vocabulary tracking
+大多数英语工具都只擅长一件事：
 
-## Why LexiGlow Feels Different
+- 要么查词快，但没有长期记忆
+- 要么有记忆系统，但打断阅读
+- 要么能分析句子，但必须跳去另一个页面
 
-Most tools force a tradeoff:
+LexiGlow 想做的是更完整的一条链路：
 
-- instant lookup but no learning memory
-- learning memory but awkward reading flow
-- sentence analysis but in a separate app or tab
+1. 继续读你原本就在读的网页
+2. 只提示真正还没掌握的词
+3. 先给一个足够快的答案
+4. 需要更深的时候，再调用更强的能力
+5. 让你的每次点击都慢慢改变个人词汇模型
 
-LexiGlow tries to combine all three in one loop:
+## 你可以怎么用
 
-1. Keep reading real content
-2. Notice only the words you still care about
-3. Get a quick answer first
-4. Ask for deeper help only when you want it
-5. Let your own interactions gradually reshape the vocabulary model
+### 1. 悬浮查词
 
-## Reading Workflows
+- 页面上未掌握的词会以浅黄色提示
+- 鼠标悬停后，默认显示 Google 中文翻译
+- 如果默认结果不够好，可以继续点 `LLM 翻译`
+- 如果这个词你已经掌握，可以点 `已掌握`
+- 如果它其实是品牌名、人名、产品名，可以点 `永不翻译`
 
-### 1. Hover to learn in flow
+这是最轻量、最不打断阅读的模式，适合日常刷推特、看文档、读新闻、看产品页。
 
-- Unfamiliar words are softly highlighted in yellow
-- Hovering a highlighted word shows a Chinese translation
-- Google is the default translator
-- If the default result feels too rough, click `LLM 翻译` for a context-aware refinement
-- If the word is actually noise for you, click `永不翻译`
-- If the word is now part of your working vocabulary, click `已掌握`
+### 2. 双击复习
 
-### 2. Double-click to bring a word back
+有些词不是完全不会，而是“明明学过，但工作时突然卡住了”。
 
-Sometimes a word is technically "known" in your model, but you have forgotten it in the moment.
+LexiGlow 把双击设计成一个很自然的复习动作：
 
-LexiGlow treats double-click as a review action:
+- 双击一个英文词
+- 这个词会重新进入复习状态
+- 当前页面会立刻更新
+- tooltip 默认先给 Google 结果
+- 你仍然可以继续切到 LLM 翻译
 
-- the word is put back into review mode
-- the page updates immediately
-- the tooltip defaults to Google translation
-- you can still switch to LLM if you want a better explanation
+这件事很重要，因为真实阅读里最常见的问题，不是“完全没见过”，而是“似懂非懂”。
 
-### 3. Select text to understand meaning fast
+### 3. 选中文本即翻译
 
-When you select English text on a page, LexiGlow now uses one unified tooltip flow:
+这是当前版本最重要的体验升级。
 
-- select one word, a phrase, or a full sentence
-- get a default Google translation immediately
-- click `LLM 翻译` if you want a better context-aware result
-- click `长难句翻译` if you want a structured sentence breakdown
+现在只要你在网页里选中英文内容，无论是：
 
-This keeps the interaction simple:
+- 1 个单词
+- 1 个词组
+- 1 整句英文
 
-- quick answer first
-- expensive analysis second
-- always inside the same tooltip
+松开鼠标后，都会直接在同一个 tooltip 里先显示默认 Google 翻译。
 
-## Core Features
+然后你还能继续做两件事：
 
-- Dynamic known-word threshold based on the Google 10,000 English frequency list
-- Manual learned-word growth over time
-- Review mode for forgotten words via double-click
-- Ignore logic for brands, handles, names, and non-learning targets
-- Default Google translation with optional OpenAI-compatible LLM refinement
-- Unified selected-text translation flow for words, phrases, and full sentences
-- Long-sentence analysis in the same tooltip, not a second popup
-- Color-coded keyword highlighting for sentence structure:
-  - subject
-  - predicate
-  - non-finite verbs
-  - conjunctions
-  - relative words
-  - prepositions
-- Toolbar popup for current learning stats
-- Full settings page for threshold, overrides, ignored words, and translator configuration
+- 点 `LLM 翻译`
+- 点 `长难句翻译`
 
-## Long-Sentence Analysis
+也就是说，LexiGlow 的思路不是“一上来就重分析”，而是：
 
-LexiGlow's long-sentence mode is designed for Chinese learners who want more than a raw translation.
+- 先给你一个最快可用的答案
+- 再决定要不要更深
 
-The analysis flow follows a practical exam-style reading method:
+### 4. 长难句拆解
 
-1. Cut the sentence into layers with conjunctions, relative words, and punctuation
-2. Find the main clause backbone by locating the core subject and predicate
-3. Separate branches such as non-finite verbs, prepositional phrases, and subordinate clauses
-4. Rebuild the sentence into natural Chinese
+如果你选中的内容足够长、足够复杂，点 `长难句翻译` 后，LexiGlow 会在同一个 tooltip 内切换到分析视图，而不是再开一个新弹窗。
 
-The result is shown in the same tooltip and includes:
+分析结果包括：
 
-- the original sentence with color highlights
-- a full Chinese translation
-- a short backbone summary
-- step-by-step explanation
+- 原句关键词彩色高亮
+- 整句中文翻译
+- 主干结构摘要
+- 分步骤拆解过程
 
-If the selected text is too short to justify full analysis, the tooltip stays in translation mode and gives a light hint instead of forcing noisy output.
+当前分析逻辑偏向中国英语考试和精读常见的拆句路径：
 
-## Vocabulary Model
+1. 先切层次
+2. 再抓主干
+3. 再拆枝叶
+4. 最后顺译
 
-LexiGlow combines frequency defaults with personal overrides:
+如果选中的内容太短，不值得做长难句分析，插件会留在当前翻译卡片里轻提示，而不会硬分析一通。
 
-1. Start from a ranked 10k English frequency list
-2. Treat the top `N` words as already known
-3. Highlight only words that are still worth learning
-4. Let user actions override the default model
-5. Keep the page state in sync as soon as words are learned or reintroduced
+## 核心能力
 
-Learning state is stored as:
+- 基于 Google 10,000 英语词频表的动态已掌握阈值
+- 用户已掌握词持续累积
+- 双击把词重新拉回复习池
+- 内置和手动的“永不翻译”能力
+- 默认 Google，按需切换 OpenAI 兼容 LLM
+- 统一的选中文本翻译流
+- 同一 tooltip 内的长难句分析
+- 长难句关键词高亮：
+  - 主语
+  - 谓语
+  - 非谓语
+  - 连词
+  - 关系词
+  - 介词
+- 当前页即时同步：
+  - 一个词标记已掌握后，同词高亮会马上消失
+- 工具栏 popup 显示学习状态和快速设置
+- 完整设置页支持阈值、忽略词、翻译器配置
 
-- `knownBaseRank` for the base high-frequency threshold
-- `masteredOverrides` for extra learned words
-- `unmasteredOverrides` for words pulled back into review
-- `ignoredWords` for terms that should never trigger translation
+## 词汇模型怎么工作
 
-## Storage and Sync
+LexiGlow 的词汇模型不是死的，而是“词频默认值 + 你的个人行为”共同决定。
 
-LexiGlow intentionally splits data by purpose.
+它的大致逻辑是：
 
-Synced with your Chrome account through `chrome.storage.sync`:
+1. 从 10k 高频词表开始
+2. 默认把前 `N` 个高频词视为你已掌握
+3. 页面上只提示剩下值得学的词
+4. 你每次点击 `已掌握` / 双击复习 / `永不翻译`，都会覆盖默认判断
 
-- known-word threshold
-- learned-word overrides
-- review overrides
-- ignored words
+当前学习状态主要包括：
 
-Stored only on the current device through `chrome.storage.local`:
+- `knownBaseRank`
+- `masteredOverrides`
+- `unmasteredOverrides`
+- `ignoredWords`
 
-- translator settings
-- local API key
-- translation cache
+这意味着它不是一个只会“机械查词”的工具，而是在逐步形成你自己的阅读词汇画像。
 
-This means your learning progress can follow the same synced Chrome profile, while sensitive translator settings stay local to the machine.
+## 数据存在哪里
 
-## Translator Setup
+LexiGlow 目前采用分层存储。
 
-LexiGlow supports:
+通过 `chrome.storage.sync` 同步的内容：
 
-- Google web translation as the default fast path
-- OpenAI-compatible chat completion APIs for LLM refinement and long-sentence analysis
+- 已掌握阈值
+- 已掌握词
+- 重新复习的词
+- 永不翻译词
 
-Configurable translator settings include:
+通过 `chrome.storage.local` 仅保存在本机的内容：
+
+- 翻译器配置
+- API Key
+- 翻译缓存
+
+这套设计的好处是：
+
+- 学习进度可以跟随同一个 Chrome 账号同步
+- 敏感配置不直接跟着同步走
+
+## 翻译器支持
+
+当前支持两条翻译路径：
+
+- Google 网页翻译：默认快速结果
+- OpenAI 兼容接口：用于 `LLM 翻译` 和 `长难句翻译`
+
+可以配置的内容包括：
 
 - `base_url`
 - `model`
 - API key
-- fallback-to-Google behavior
-- LLM display mode:
-  - word-only
-  - word plus full-sentence translation
+- 失败时是否回退 Google
+- LLM 结果显示模式
 
-## Install for Development
+## 安装与开发
 
 ```bash
 npm install
@@ -186,55 +200,60 @@ npm run build
 npm test
 ```
 
-Then load the extension in Chrome:
+然后在 Chrome 中加载：
 
-1. Open `chrome://extensions`
-2. Enable `Developer mode`
-3. Click `Load unpacked`
-4. Select either:
-   - the project root after build, or
-   - the `dist` folder
+1. 打开 `chrome://extensions`
+2. 开启 `Developer mode`
+3. 点击 `Load unpacked`
+4. 选择项目根目录或 `dist`
 
-## What To Test First
+## 上手后建议先试这几步
 
-After loading the extension, a good smoke test is:
+1. 打开一个英文网页
+2. 悬停一个黄色单词，确认能看到中文
+3. 点击 `LLM 翻译`，确认结果能原位升级
+4. 双击一个词，确认它会重新进入复习
+5. 选中一个词组，确认默认先出 Google
+6. 选中一整句，点击 `长难句翻译`
+7. 点击 `已掌握`，确认当前页同词高亮即时消失
 
-1. Hover a highlighted word and confirm the tooltip shows Chinese
-2. Click `LLM 翻译` and confirm the result upgrades in place
-3. Double-click a known word and confirm it comes back into review
-4. Select a phrase and confirm Google translation appears immediately
-5. Select a full sentence and click `长难句翻译`
-6. Click `已掌握` on a word and confirm matching highlights disappear on the page immediately
-
-## Tech Stack
+## 技术栈
 
 - TypeScript
 - Vite
 - esbuild
 - Chrome Manifest V3
-- Native CSS Highlights API where available
-- Google web translation prototype
-- OpenAI-compatible LLM provider support
+- CSS Highlights API
+- Google 网页翻译原型
+- OpenAI 兼容 LLM 接口
 
-## Current Limitations
+## 当前限制
 
-- Chrome-focused for now
-- Uses a lightweight Google web translate prototype instead of an official paid API
-- Long-sentence analysis quality still depends on the configured LLM
-- Sentence highlighting uses a mix of model output and local heuristics, so it is useful but not full syntactic parsing
-- Tooltip positioning is tuned for reading flow, but dense pages and unusual selection shapes can still produce edge cases
-- The extension is optimized for normal `http/https` pages, not every browser surface
+- 目前主要面向 Chrome
+- 默认翻译仍使用轻量 Google 网页接口原型，不是正式付费 API
+- 长难句分析质量依赖当前配置的 LLM
+- 句法高亮目前是“模型输出 + 本地规则”的混合方式，还不是完整语法树解析
+- tooltip 定位已经为阅读体验做过优化，但在极其复杂的页面结构里仍可能出现边界情况
 
-## Roadmap
+## 适合谁
 
-- Better proper-noun and named-entity filtering
-- Better clause grouping and sentence-structure highlighting
-- More polished tooltip states and feedback animations
-- Optional personal export/import of learning progress
-- Smarter translation providers and caching strategies
-- Chrome Web Store packaging and release automation
+LexiGlow 特别适合这几类人：
 
-## Validation
+- 一边工作一边读英文资料的开发者
+- 经常刷英文产品、推特、新闻和博客的人
+- 不喜欢被背词软件打断，但又希望词汇量稳步上升的人
+- 想把“查词”升级成“阅读理解能力”的用户
+
+## 路线图
+
+- 更强的专有名词与实体识别
+- 更好的从句分层和结构高亮
+- 更顺手的 tooltip 动效与反馈
+- 学习数据导出 / 导入
+- 更稳定的翻译 provider 策略
+- Chrome Web Store 发布与自动化
+
+## 已验证
 
 - `npm test`
 - `npm run build`
