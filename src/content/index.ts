@@ -404,8 +404,15 @@ function isEnglishLikeWord(surface: string): boolean {
   return /^[A-Za-z]+(?:'[A-Za-z]+)?$/.test(surface);
 }
 
-function isTechnicalBoundaryCharacter(char: string | undefined): boolean {
-  return Boolean(char && /[_@./\\-]/u.test(char));
+function isStructuralTechnicalBoundaryCharacter(char: string | undefined): boolean {
+  return Boolean(char && /[_@/\\-]/u.test(char));
+}
+
+function isDotEmbeddedInTechnicalToken(text: string, start: number, end: number): boolean {
+  return (
+    text[start - 1] === "." ||
+    (text[end] === "." && isAlphaNumeric(text[end + 1]))
+  );
 }
 
 function isUrlSchemeBoundary(text: string, start: number, end: number): boolean {
@@ -419,8 +426,9 @@ function isEmbeddedInTechnicalToken(text: string, start: number, end: number): b
   return (
     isAlphaNumeric(text[start - 1]) ||
     isAlphaNumeric(text[end]) ||
-    isTechnicalBoundaryCharacter(text[start - 1]) ||
-    isTechnicalBoundaryCharacter(text[end]) ||
+    isStructuralTechnicalBoundaryCharacter(text[start - 1]) ||
+    isStructuralTechnicalBoundaryCharacter(text[end]) ||
+    isDotEmbeddedInTechnicalToken(text, start, end) ||
     isUrlSchemeBoundary(text, start, end)
   );
 }
@@ -2220,7 +2228,9 @@ document.addEventListener("keyup", (event) => {
     return;
   }
 
-  if (event.key === "Shift" || event.key.startsWith("Arrow")) {
+  const key = event.key ?? "";
+
+  if (key === "Shift" || key.startsWith("Arrow")) {
     window.setTimeout(() => {
       updateSelectionAnalysisTrigger();
     }, 0);
@@ -2241,6 +2251,8 @@ document.addEventListener("dblclick", () => {
       if (!changed) {
         return;
       }
+
+      window.getSelection()?.removeAllRanges();
 
       await resolveHoverWord(context);
     })();

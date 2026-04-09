@@ -31,6 +31,14 @@ describe("extractWordAtOffset", () => {
     expect(extractWordAtOffset("linux-rockchip@ host", 2)).toBeNull();
     expect(extractWordAtOffset("example.com/docs", 2)).toBeNull();
   });
+
+  test("keeps sentence-ending words valid when followed by punctuation", () => {
+    expect(extractWordAtOffset("He worked.", 7)).toEqual({
+      surface: "worked",
+      start: 3,
+      end: 9,
+    });
+  });
 });
 
 describe("selection helpers", () => {
@@ -43,6 +51,7 @@ describe("selection helpers", () => {
   test("normalizes single selected words by trimming edge punctuation", () => {
     expect(normalizeSingleEnglishWord("\"received.\"")).toBe("received");
     expect(normalizeSingleEnglishWord("(continue)")).toBe("continue");
+    expect(normalizeSingleEnglishWord("worked,")).toBe("worked");
   });
 
   test("accepts english words, phrases, and sentences", () => {
