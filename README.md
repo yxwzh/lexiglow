@@ -79,25 +79,7 @@ npm run build
 5. 点击 `LLM 翻译`，确认可看到更强语境翻译或英英解释
 6. 点击 `长难句翻译`，确认会切到分析视图
 
-如果你想验证“已掌握词形归并”是否生效，建议这样测：
-
-1. 打开扩展设置页，把“默认已掌握前 N 词”临时改成 `0`
-2. 搜索 `add` 并点 `设为已掌握`
-3. 刷新一个包含下面文本的英文页面：
-
-```text
-I add notes every day.
-She adds comments quickly.
-They added more details yesterday.
-We are adding new examples now.
-The addition was helpful.
-This is an additive effect.
-```
-
-预期结果：
-
-- `add / adds / added / adding` 不再作为待翻译词提示
-- `addition / additive` 仍会继续提示
+已掌握状态会自动归并常见屈折变化，包括复数、三单、过去式、过去分词和现在分词；派生词仍独立判断，因此掌握 `work` 会连带覆盖 `works / worked / working`，但不会自动覆盖 `worker` 或 `workable`。
 
 ## 许可证与商用
 
