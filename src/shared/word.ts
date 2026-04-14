@@ -6,9 +6,87 @@ export interface WordAtOffset {
 
 const ENGLISH_WORD_RE = /^[A-Za-z]+(?:'[A-Za-z]+)?$/;
 
+// Common Chinese surname pinyin patterns (single and compound surnames)
+const CHINESE_SURNAME_PATTERNS = [
+  /^(zh|ch|sh|[bcdfghjklmnpqrstwxyz])(ang|eng|ing|ong|an|en|in|un|ian|uan|üan|üe|ie|iu|ui|ou|ao|ai|ei|er|v)?$/i,
+  /^(li|zhang|wang|liu|chen|yang|huang|zhao|wu|zhou|xu|sun|ma|zhu|hu|guo|he|gao|lin|luo|zheng|liang|xie|song|tang|feng|yu|dong|pan|cao|peng|cai|jiang|wei|su|cheng|qian|deng|fan|fu|shen|han|jiang|hong|hu|jin|lei|liao|ling|qi|qiu|shi|tan|wan|wen|wu|xiang|xiao|yan|yao|yi|yin|yuan|zeng|zhai|zheng|zhong|zou)$/i,
+];
+
+// Patterns that look like pinyin or name abbreviations
+const PINYIN_LIKE_RE = /^[bcdfghjklmnpqrstwxyz][a-z]{0,3}$/i; // Very short consonant-start tokens like "zs", "lm"
+const ALL_CAPS_ABBREVIATION_RE = /^[A-Z]{2,4}$/; // Name abbreviations like "ZS", "LXM", "WJL"
+const PINYIN_SYLLABLE_COUNT_RE = /^([bcdfghjklmnpqrstwxyz][a-z]*[aeiou]){1,2}$/i; // 1-2 syllable pinyin-like
+
+// Common English words that might match pinyin patterns but are legitimate English
+const ENGLISH_FALSE_POSITIVES = new Set([
+  'be', 'he', 'she', 'we', 'me', 'go', 'no', 'so', 'do', 'to', 'up', 'if', 'in', 'on', 'at', 'by', 'my', 'hi',
+  'can', 'man', 'men', 'sun', 'run', 'fun', 'but', 'put', 'get', 'let', 'set', 'sit', 'hit', 'bit', 'fit', 'pit',
+  'not', 'hot', 'got', 'lot', 'pot', 'dot', 'cat', 'bat', 'rat', 'fat', 'hat', 'mat', 'sat', 'pat', 'eat', 'tea',
+  'see', 'bee', 'fee', 'lee', 'too', 'zoo', 'boo', 'moo', 'roo', 'loo', 'coo', 'woo',
+  'yes', 'way', 'say', 'day', 'may', 'ray', 'lay', 'pay', 'bay', 'gay', 'hay', 'jay', 'nay', 'key', 'eye',
+  'air', 'ear', 'car', 'far', 'bar', 'war', 'tar', 'par', 'mar', 'star', 'door', 'floor', 'poor', 'boar', 'boor',
+  'continue', 'received', 'worked', 'running', 'look', 'charge', 'replied', 'file', 'docs', 'grew', 'package',
+  'yesterday', 'revenue', 'grew', 'fourth', 'quarter', 'fiscal', 'year', 'twenty', 'twentyfive', 'in', 'of',
+  'hello', 'world', 'example', 'test', 'name', 'time', 'good', 'bad', 'new', 'old', 'long', 'little', 'great',
+]);
+
+/**
+ * Checks if a string looks like Chinese pinyin or a name abbreviation.
+ * This helps avoid false positives when identifying English words.
+ */
+function isLikelyPinyinOrNameAbbreviation(surface: string): boolean {
+  const lower = surface.toLowerCase();
+  
+  // Don't flag common English words even if they match pinyin-like patterns
+  if (ENGLISH_FALSE_POSITIVES.has(lower)) {
+    return false;
+  }
+  
+  // Check for very short consonant-based tokens (likely initials/abbreviations)
+  // But exclude common 2-letter English words
+  if (PINYIN_LIKE_RE.test(surface) && surface.length <= 4) {
+    // Exclude common English words of length 2-3
+    if (surface.length <= 3 && /^[aeiou]/i.test(surface)) {
+      return false; // Words starting with vowel are likely English
+    }
+    return true;
+  }
+  
+  // Check for all-caps short abbreviations (common for Chinese names)
+  if (ALL_CAPS_ABBREVIATION_RE.test(surface)) {
+    return true;
+  }
+  
+  // Check if it matches common Chinese surname patterns
+  if (CHINESE_SURNAME_PATTERNS.some(pattern => pattern.test(lower))) {
+    return true;
+  }
+  
+  // Check for pinyin-like syllable patterns (1-2 syllables, no complex clusters)
+  // Be more restrictive: require it to not have typical English word endings
+  if (PINYIN_SYLLABLE_COUNT_RE.test(surface) && surface.length <= 6) {
+    // Exclude words with common English suffixes
+    if (/^(ing|ed|ly|er|est|ness|tion|ment|able|ible)$/.test(lower)) {
+      return false;
+    }
+    return true;
+  }
+  
+  return false;
+}
+
 export function normalizeSingleEnglishWord(surface: string): string {
   const compact = surface.trim().replace(/^[^A-Za-z']+|[^A-Za-z']+$/g, "");
-  return ENGLISH_WORD_RE.test(compact) ? compact : "";
+  if (!ENGLISH_WORD_RE.test(compact)) {
+    return "";
+  }
+  
+  // Reject pinyin-like or name abbreviation patterns
+  if (isLikelyPinyinOrNameAbbreviation(compact)) {
+    return "";
+  }
+  
+  return compact;
 }
 
 function isWordCharacter(char: string | undefined): boolean {
@@ -96,6 +174,12 @@ export function isEnglishSelectionText(text: string): boolean {
   }
 
   if (isLikelyTechnicalToken(compact)) {
+    return false;
+  }
+
+  // Reject pinyin-like or name abbreviation patterns for single-word selections
+  const wordMatch = compact.match(/^[A-Za-z]+(?:'[A-Za-z]+)?$/);
+  if (wordMatch && isLikelyPinyinOrNameAbbreviation(wordMatch[0])) {
     return false;
   }
 
