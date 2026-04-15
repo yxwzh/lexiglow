@@ -40,6 +40,8 @@ const TOOLTIP_STYLE = `
     all: initial;
   }
   .wordwise-card {
+    --wordwise-ui-font: "SF Pro Text", "SF Pro SC", "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei UI", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
     position: fixed;
     min-width: 220px;
     max-width: 360px;
@@ -49,7 +51,7 @@ const TOOLTIP_STYLE = `
     background: rgba(255, 252, 245, 0.96);
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
     color: #172033;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--wordwise-ui-font);
     backdrop-filter: blur(12px);
     pointer-events: auto;
   }
@@ -270,57 +272,157 @@ const TOOLTIP_STYLE = `
     font-size: 13px;
     line-height: 1.6;
     color: #6b7280;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     font-family: inherit;
   }
+  .wordwise-analysis-status:empty {
+    display: none;
+    margin-bottom: 0;
+  }
   .wordwise-analysis-section {
-    margin-bottom: 14px;
+    margin-bottom: 18px;
+  }
+  .wordwise-analysis-section--steps {
+    margin-top: 2px;
+    margin-bottom: 8px;
   }
   .wordwise-analysis-loading {
     display: none;
     margin-bottom: 14px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: rgba(20, 33, 61, 0.05);
+    padding: 14px 15px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background:
+      linear-gradient(180deg, rgba(239, 246, 255, 0.62), rgba(255, 255, 255, 0.76));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.56),
+      0 10px 24px rgba(148, 163, 184, 0.08);
   }
   .wordwise-analysis-loading[data-visible="true"] {
     display: block;
+    animation: wordwise-analysis-loading-in 220ms ease-out both;
   }
   .wordwise-analysis-loading-title {
     font-size: 13px;
-    line-height: 1.6;
-    color: #334155;
+    line-height: 1.4;
+    color: #24364d;
     font-family: inherit;
-    margin-bottom: 8px;
+    font-weight: 600;
+    margin-bottom: 6px;
   }
-  .wordwise-analysis-loading-steps {
-    display: grid;
-    gap: 6px;
+  .wordwise-analysis-loading-caption {
+    font-size: 12px;
+    line-height: 1.55;
+    color: #64748b;
   }
-  .wordwise-analysis-loading-step {
-    font-size: 13px;
-    line-height: 1.6;
-    color: #475569;
-    font-family: inherit;
-    opacity: 0.72;
-    animation: wordwise-fade 1.2s ease-in-out infinite;
+  .wordwise-analysis-loading-orbit {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 12px;
   }
-  .wordwise-analysis-loading-step:nth-child(2) {
+  .wordwise-analysis-loading-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(96, 165, 250, 0.72);
+    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.18);
+    animation: wordwise-analysis-dot-pulse 1.25s ease-in-out infinite;
+  }
+  .wordwise-analysis-loading-dot:nth-child(2) {
     animation-delay: 0.15s;
   }
-  .wordwise-analysis-loading-step:nth-child(3) {
+  .wordwise-analysis-loading-dot:nth-child(3) {
     animation-delay: 0.3s;
   }
-  .wordwise-analysis-loading-step:nth-child(4) {
+  .wordwise-analysis-loading-dot:nth-child(4) {
     animation-delay: 0.45s;
+  }
+  .wordwise-analysis-loading-line {
+    position: relative;
+    height: 3px;
+    margin-top: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(148, 163, 184, 0.18);
+  }
+  .wordwise-analysis-loading-line::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 42%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(96, 165, 250, 0.1), rgba(96, 165, 250, 0.48), rgba(167, 139, 250, 0.18));
+    animation: wordwise-analysis-line-sweep 1.3s ease-in-out infinite;
+  }
+  .wordwise-analysis-view[data-phase="loading"] .wordwise-analysis-section {
+    display: none;
+  }
+  .wordwise-analysis-view[data-phase="loading"] .wordwise-analysis-loading {
+    display: block;
+  }
+  .wordwise-analysis-view[data-phase="ready"] .wordwise-analysis-section {
+    animation: wordwise-analysis-reveal 280ms ease-out both;
+  }
+  .wordwise-analysis-view[data-phase="ready"] .wordwise-analysis-section:nth-of-type(1) {
+    animation-delay: 0ms;
+  }
+  .wordwise-analysis-view[data-phase="ready"] .wordwise-analysis-section:nth-of-type(2) {
+    animation-delay: 36ms;
+  }
+  .wordwise-analysis-view[data-phase="ready"] .wordwise-analysis-section:nth-of-type(3) {
+    animation-delay: 72ms;
+  }
+  .wordwise-analysis-view[data-phase="ready"] .wordwise-analysis-section:nth-of-type(4) {
+    animation-delay: 108ms;
+  }
+  @keyframes wordwise-analysis-loading-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes wordwise-analysis-dot-pulse {
+    0%, 100% {
+      transform: translateY(0) scale(0.88);
+      opacity: 0.36;
+      box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.08);
+    }
+    50% {
+      transform: translateY(-1px) scale(1);
+      opacity: 1;
+      box-shadow: 0 0 0 6px rgba(96, 165, 250, 0);
+    }
+  }
+  @keyframes wordwise-analysis-line-sweep {
+    0% {
+      transform: translateX(-110%);
+    }
+    100% {
+      transform: translateX(260%);
+    }
+  }
+  @keyframes wordwise-analysis-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .wordwise-analysis-label {
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #6b7280;
+    color: #64748b;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .wordwise-analysis-source,
   .wordwise-analysis-translation,
@@ -331,10 +433,71 @@ const TOOLTIP_STYLE = `
     font-size: 14px;
     line-height: 1.7;
     color: #1f2937;
-    font-family: inherit;
+    font-family: var(--wordwise-ui-font);
+  }
+  .wordwise-analysis-card-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    min-width: 0;
+  }
+  .wordwise-analysis-card-spacer {
+    min-height: 1px;
+  }
+  .wordwise-analysis-card-panel,
+  .wordwise-analysis-step-panel {
+    position: relative;
+    min-width: 0;
+    padding: 11px 13px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(255, 255, 255, 0.66);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 10px 24px rgba(148, 163, 184, 0.08);
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+  .wordwise-analysis-card-panel:hover,
+  .wordwise-analysis-step-panel:hover {
+    background: rgba(255, 255, 255, 0.78);
+    border-color: rgba(148, 163, 184, 0.24);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.58),
+      0 12px 28px rgba(148, 163, 184, 0.1);
+  }
+  .wordwise-analysis-card-panel--tone-0,
+  .wordwise-analysis-step-card--tone-0 .wordwise-analysis-step-panel {
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.82), rgba(255, 255, 255, 0.72));
+  }
+  .wordwise-analysis-card-panel--tone-1,
+  .wordwise-analysis-step-card--tone-1 .wordwise-analysis-step-panel {
+    background: linear-gradient(180deg, rgba(255, 247, 237, 0.84), rgba(255, 255, 255, 0.72));
+  }
+  .wordwise-analysis-card-panel--tone-2,
+  .wordwise-analysis-step-card--tone-2 .wordwise-analysis-step-panel {
+    background: linear-gradient(180deg, rgba(250, 245, 255, 0.86), rgba(255, 255, 255, 0.72));
+  }
+  .wordwise-analysis-card-panel--tone-3,
+  .wordwise-analysis-step-card--tone-3 .wordwise-analysis-step-panel {
+    background: linear-gradient(180deg, rgba(240, 253, 244, 0.84), rgba(255, 255, 255, 0.72));
   }
   .wordwise-analysis-source {
-    line-height: 2.08;
+    font-size: 13.5px;
+    line-height: 2;
+    color: #334155;
+  }
+  .wordwise-analysis-translation,
+  .wordwise-analysis-structure {
+    font-size: 13.5px;
+    line-height: 1.82;
+    letter-spacing: 0.005em;
+    color: #334155;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
   .wordwise-analysis-vocabulary-list,
   .wordwise-analysis-summary-list,
@@ -449,37 +612,178 @@ const TOOLTIP_STYLE = `
     color: #64748b;
   }
   .wordwise-analysis-steps {
+    position: relative;
+    list-style: none;
     margin: 0;
-    padding-left: 18px;
-    color: #1f2937;
-    font-family: inherit;
-    font-size: 14px;
-    line-height: 1.7;
+    padding: 2px 0 0;
+    display: grid;
+    gap: 12px;
   }
-  .wordwise-analysis-steps li {
-    margin-bottom: 6px;
-    line-height: 1.65;
-    font-family: inherit;
-    font-size: 14px;
+  .wordwise-analysis-steps::before {
+    content: "";
+    position: absolute;
+    left: 17px;
+    top: 16px;
+    bottom: 16px;
+    width: 1px;
+    background: linear-gradient(
+      180deg,
+      rgba(148, 163, 184, 0),
+      rgba(148, 163, 184, 0.3) 12%,
+      rgba(148, 163, 184, 0.28) 88%,
+      rgba(148, 163, 184, 0)
+    );
   }
-  .wordwise-analysis-step-intro {
+  .wordwise-analysis-step-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    min-width: 0;
+  }
+  .wordwise-analysis-step-rail {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    padding-top: 6px;
+  }
+  .wordwise-analysis-step-dot {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 7px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.05em;
+    box-shadow:
+      0 6px 16px rgba(255, 255, 255, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  }
+  .wordwise-analysis-step-panel {
+  }
+  .wordwise-analysis-step-card--tone-0 .wordwise-analysis-step-dot {
+    color: #1d4ed8;
+    background: rgba(219, 234, 254, 0.9);
+    box-shadow:
+      0 6px 16px rgba(37, 99, 235, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.66);
+  }
+  .wordwise-analysis-step-card--tone-1 .wordwise-analysis-step-dot {
+    color: #c2410c;
+    background: rgba(254, 215, 170, 0.64);
+    box-shadow:
+      0 6px 16px rgba(234, 88, 12, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.66);
+  }
+  .wordwise-analysis-step-card--tone-2 .wordwise-analysis-step-dot {
+    color: #6d28d9;
+    background: rgba(233, 213, 255, 0.72);
+    box-shadow:
+      0 6px 16px rgba(147, 51, 234, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.66);
+  }
+  .wordwise-analysis-step-card--tone-3 .wordwise-analysis-step-dot {
+    color: #166534;
+    background: rgba(220, 252, 231, 0.78);
+    box-shadow:
+      0 6px 16px rgba(22, 163, 74, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.66);
+  }
+  .wordwise-analysis-step-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+  .wordwise-analysis-step-accent {
+    width: 14px;
+    height: 2px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+  }
+  .wordwise-analysis-step-card--tone-0 .wordwise-analysis-step-accent {
+    background: rgba(29, 78, 216, 0.56);
+  }
+  .wordwise-analysis-step-card--tone-1 .wordwise-analysis-step-accent {
+    background: rgba(194, 65, 12, 0.54);
+  }
+  .wordwise-analysis-step-card--tone-2 .wordwise-analysis-step-accent {
+    background: rgba(109, 40, 217, 0.54);
+  }
+  .wordwise-analysis-step-card--tone-3 .wordwise-analysis-step-accent {
+    background: rgba(22, 101, 52, 0.52);
+  }
+  .wordwise-analysis-step-tag {
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    color: #64748b;
+  }
+  .wordwise-analysis-step-body {
+    font-family: var(--wordwise-ui-font);
+    font-size: 13.5px;
+    line-height: 1.82;
+    letter-spacing: 0.005em;
+    color: #334155;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overflow-wrap: anywhere;
+  }
+  .wordwise-analysis-step-lead {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 7px;
+    color: #24364d;
+    font-weight: 600;
+    line-height: 1.78;
+  }
+  .wordwise-analysis-step-rest {
+    color: #475569;
+  }
+  .wordwise-analysis-inline-emphasis {
+    display: inline;
+    font-weight: 600;
+    color: #24364d;
+    background: linear-gradient(180deg, transparent 62%, rgba(191, 219, 254, 0.24) 62%, rgba(191, 219, 254, 0.24) 96%, transparent 96%);
+    box-shadow: inset 0 -0.07em 0 rgba(96, 165, 250, 0.1);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
   .wordwise-analysis-substeps {
-    margin: 6px 0 0;
-    padding-left: 18px;
-    color: #334155;
+    list-style: none;
+    margin: 7px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 7px;
   }
   .wordwise-analysis-substeps li {
-    margin-bottom: 6px;
-    line-height: 1.65;
+    position: relative;
+    padding-left: 13px;
+    color: #475569;
+    line-height: 1.78;
+  }
+  .wordwise-analysis-substeps li {
+    margin-bottom: 0;
+  }
+  .wordwise-analysis-substeps li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.88em;
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.52);
   }
   .wordwise-analysis-legend {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-    margin-top: 8px;
+    margin-top: 10px;
   }
   .wordwise-clause-block {
     display: inline;
@@ -1020,41 +1324,164 @@ function renderClauseBlockContent(
     .join("");
 }
 
-function formatAnalysisStepMarkup(step: string): string {
-  const trimmed = step
+const ANALYSIS_STEP_LABELS = ["切层次", "抓主干", "理枝叶", "顺译序"] as const;
+const ANALYSIS_STEP_TONE_CLASSES = [
+  "wordwise-analysis-step-card--tone-0",
+  "wordwise-analysis-step-card--tone-1",
+  "wordwise-analysis-step-card--tone-2",
+  "wordwise-analysis-step-card--tone-3",
+] as const;
+const ANALYSIS_INLINE_EMPHASIS_PATTERN =
+  /[A-Za-z][A-Za-z0-9'/-]*(?:\s+[A-Za-z0-9'/.(),-]+){0,7}/g;
+
+function normalizeAnalysisStepText(step: string): string {
+  return step
     .trim()
     .replace(/^(?:step\s*)?\d+[\.\)）:：-]\s*/iu, "")
     .replace(/^第\s*\d+\s*步[\s:：-]*/u, "");
+}
+
+function renderAnalysisInlineMarkup(text: string): string {
+  ANALYSIS_INLINE_EMPHASIS_PATTERN.lastIndex = 0;
+
+  let markup = "";
+  let cursor = 0;
+  let match: RegExpExecArray | null = ANALYSIS_INLINE_EMPHASIS_PATTERN.exec(text);
+
+  while (match) {
+    const value = match[0];
+    const start = match.index;
+    const end = start + value.length;
+
+    if (start > cursor) {
+      markup += escapeHtml(text.slice(cursor, start));
+    }
+
+    const wordCount = value.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g)?.length ?? 0;
+    const shouldEmphasize =
+      wordCount >= 2 ||
+      /[-/]/.test(value) ||
+      value.length >= 7 ||
+      /(?:\.{3}|…)/.test(value);
+
+    markup += shouldEmphasize
+      ? `<span class="wordwise-analysis-inline-emphasis">${escapeHtml(value)}</span>`
+      : escapeHtml(value);
+    cursor = end;
+    match = ANALYSIS_INLINE_EMPHASIS_PATTERN.exec(text);
+  }
+
+  if (cursor < text.length) {
+    markup += escapeHtml(text.slice(cursor));
+  }
+
+  return markup;
+}
+
+function splitAnalysisLead(text: string): { lead: string; rest: string } {
+  const trimmed = text.trim();
+
+  if (trimmed.length < 22) {
+    return { lead: "", rest: trimmed };
+  }
+
+  const strongBreaks = ["：", ":", "。", "；", ";"];
+
+  for (const mark of strongBreaks) {
+    const index = trimmed.indexOf(mark);
+
+    if (index >= 7 && index <= 36 && trimmed.length - index - 1 >= 10) {
+      return {
+        lead: trimmed.slice(0, index + 1).trim(),
+        rest: trimmed.slice(index + 1).trim(),
+      };
+    }
+  }
+
+  const commaIndex = trimmed.indexOf("，");
+
+  if (commaIndex >= 10 && commaIndex <= 28 && trimmed.length - commaIndex - 1 >= 12) {
+    return {
+      lead: trimmed.slice(0, commaIndex + 1).trim(),
+      rest: trimmed.slice(commaIndex + 1).trim(),
+    };
+  }
+
+  return { lead: "", rest: trimmed };
+}
+
+function buildAnalysisStepContentMarkup(step: string): string {
+  const trimmed = normalizeAnalysisStepText(step);
   const subStepPattern = /(?:^|\s)(\d+[\)）])/g;
   const markers = [...trimmed.matchAll(subStepPattern)];
 
-  if (markers.length < 2) {
-    return escapeHtml(trimmed);
+  if (markers.length >= 2) {
+    const firstMarkerIndex = markers[0]?.index ?? -1;
+
+    if (firstMarkerIndex >= 0) {
+      const intro = trimmed.slice(0, firstMarkerIndex).trim().replace(/[:：]\s*$/, "");
+      const items = markers
+        .map((marker, index) => {
+          const markerIndex = marker.index ?? 0;
+          const start = markerIndex + marker[0].length;
+          const nextMarkerIndex =
+            index + 1 < markers.length ? (markers[index + 1].index ?? trimmed.length) : trimmed.length;
+          return trimmed.slice(start, nextMarkerIndex).trim();
+        })
+        .filter(Boolean);
+
+      if (items.length) {
+        const introMarkup = intro
+          ? `<span class="wordwise-analysis-step-lead">${renderAnalysisInlineMarkup(intro)}</span>`
+          : "";
+        const listMarkup = items
+          .map((item) => `<li>${renderAnalysisInlineMarkup(item)}</li>`)
+          .join("");
+
+        return `${introMarkup}<ul class="wordwise-analysis-substeps">${listMarkup}</ul>`;
+      }
+    }
   }
 
-  const firstMarkerIndex = markers[0]?.index ?? -1;
+  const { lead, rest } = splitAnalysisLead(trimmed);
 
-  if (firstMarkerIndex < 0) {
-    return escapeHtml(trimmed);
+  if (!lead) {
+    return `<span class="wordwise-analysis-step-rest">${renderAnalysisInlineMarkup(trimmed)}</span>`;
   }
 
-  const intro = trimmed.slice(0, firstMarkerIndex).trim().replace(/[:：]\s*$/, "");
-  const items = markers.map((marker, index) => {
-    const markerIndex = marker.index ?? 0;
-    const start = markerIndex + marker[0].length;
-    const nextMarkerIndex = index + 1 < markers.length ? (markers[index + 1].index ?? trimmed.length) : trimmed.length;
-    const content = trimmed.slice(start, nextMarkerIndex).trim();
-    return content;
-  }).filter(Boolean);
+  const restMarkup = rest
+    ? `<span class="wordwise-analysis-step-rest">${renderAnalysisInlineMarkup(rest)}</span>`
+    : "";
 
-  if (!items.length) {
-    return escapeHtml(trimmed);
-  }
+  return `<span class="wordwise-analysis-step-lead">${renderAnalysisInlineMarkup(lead)}</span>${restMarkup}`;
+}
 
-  const introMarkup = intro ? `<span class="wordwise-analysis-step-intro">${escapeHtml(intro)}</span>` : "";
-  const listMarkup = items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+function renderAnalysisStepsMarkup(steps: string[]): string {
+  return steps
+    .map((step, index) => {
+      const toneClass =
+        ANALYSIS_STEP_TONE_CLASSES[index] ??
+        ANALYSIS_STEP_TONE_CLASSES[ANALYSIS_STEP_TONE_CLASSES.length - 1];
+      const label = ANALYSIS_STEP_LABELS[index] ?? `补充说明 ${index + 1}`;
+      const stepNumber = String(index + 1).padStart(2, "0");
+      const bodyMarkup = buildAnalysisStepContentMarkup(step);
 
-  return `${introMarkup}<ol class="wordwise-analysis-substeps">${listMarkup}</ol>`;
+      return `
+        <li class="wordwise-analysis-step-card ${toneClass}">
+          <div class="wordwise-analysis-step-rail">
+            <span class="wordwise-analysis-step-dot">${stepNumber}</span>
+          </div>
+          <div class="wordwise-analysis-step-panel">
+            <div class="wordwise-analysis-step-header">
+              <span class="wordwise-analysis-step-accent"></span>
+              <span class="wordwise-analysis-step-tag">${label}</span>
+            </div>
+            <div class="wordwise-analysis-step-body">${bodyMarkup}</div>
+          </div>
+        </li>
+      `.trim();
+    })
+    .join("");
 }
 
 function renderLegendMarkup(result: SentenceAnalysisResult, sentence: string): string {
@@ -1278,6 +1705,7 @@ function createTooltipRoot() {
   const analysisView = document.createElement("div");
   analysisView.className = "wordwise-analysis-view";
   analysisView.dataset.visible = "false";
+  analysisView.dataset.phase = "idle";
 
   const analysisHeader = document.createElement("div");
   analysisHeader.className = "wordwise-analysis-header";
@@ -1298,13 +1726,15 @@ function createTooltipRoot() {
   analysisLoadingEl.className = "wordwise-analysis-loading";
   analysisLoadingEl.dataset.visible = "false";
   analysisLoadingEl.innerHTML = `
-    <div class="wordwise-analysis-loading-title">正在按四步法拆句并顺译，请稍等</div>
-    <div class="wordwise-analysis-loading-steps">
-      <div class="wordwise-analysis-loading-step">1. 正在切层次，先找连接标志和关系词</div>
-      <div class="wordwise-analysis-loading-step">2. 正在抓主干，定位主句主语和谓语</div>
-      <div class="wordwise-analysis-loading-step">3. 正在梳理修饰、非谓语和逻辑挂靠关系</div>
-      <div class="wordwise-analysis-loading-step">4. 正在顺译，组织自然的中文表达</div>
+    <div class="wordwise-analysis-loading-orbit" aria-hidden="true">
+      <span class="wordwise-analysis-loading-dot"></span>
+      <span class="wordwise-analysis-loading-dot"></span>
+      <span class="wordwise-analysis-loading-dot"></span>
+      <span class="wordwise-analysis-loading-dot"></span>
     </div>
+    <div class="wordwise-analysis-loading-title">正在翻译长难句</div>
+    <div class="wordwise-analysis-loading-caption">正在整理句子结构、译序和核心意思，请稍等。</div>
+    <div class="wordwise-analysis-loading-line" aria-hidden="true"></div>
   `;
 
   const analysisSourceSection = document.createElement("section");
@@ -1312,23 +1742,39 @@ function createTooltipRoot() {
   const analysisSourceLabel = document.createElement("div");
   analysisSourceLabel.className = "wordwise-analysis-label";
   analysisSourceLabel.textContent = "原句拆解";
+  const analysisSourceCardRow = document.createElement("div");
+  analysisSourceCardRow.className = "wordwise-analysis-card-row";
+  const analysisSourceCardSpacer = document.createElement("div");
+  analysisSourceCardSpacer.className = "wordwise-analysis-card-spacer";
+  const analysisSourceCardPanel = document.createElement("div");
+  analysisSourceCardPanel.className = "wordwise-analysis-card-panel wordwise-analysis-card-panel--tone-0";
   const analysisSourceEl = document.createElement("div");
   analysisSourceEl.className = "wordwise-analysis-source";
   const analysisLegendEl = document.createElement("div");
   analysisLegendEl.className = "wordwise-analysis-legend";
-  analysisSourceSection.append(analysisSourceLabel, analysisSourceEl, analysisLegendEl);
+  analysisSourceCardPanel.append(analysisSourceEl, analysisLegendEl);
+  analysisSourceCardRow.append(analysisSourceCardSpacer, analysisSourceCardPanel);
+  analysisSourceSection.append(analysisSourceLabel, analysisSourceCardRow);
 
   const analysisStructureSection = document.createElement("section");
   analysisStructureSection.className = "wordwise-analysis-section";
   const analysisStructureLabel = document.createElement("div");
   analysisStructureLabel.className = "wordwise-analysis-label";
   analysisStructureLabel.textContent = "主干结构";
+  const analysisStructureCardRow = document.createElement("div");
+  analysisStructureCardRow.className = "wordwise-analysis-card-row";
+  const analysisStructureCardSpacer = document.createElement("div");
+  analysisStructureCardSpacer.className = "wordwise-analysis-card-spacer";
+  const analysisStructureCardPanel = document.createElement("div");
+  analysisStructureCardPanel.className = "wordwise-analysis-card-panel wordwise-analysis-card-panel--tone-2";
   const analysisStructureEl = document.createElement("div");
   analysisStructureEl.className = "wordwise-analysis-structure";
-  analysisStructureSection.append(analysisStructureLabel, analysisStructureEl);
+  analysisStructureCardPanel.append(analysisStructureEl);
+  analysisStructureCardRow.append(analysisStructureCardSpacer, analysisStructureCardPanel);
+  analysisStructureSection.append(analysisStructureLabel, analysisStructureCardRow);
 
   const analysisStepsSection = document.createElement("section");
-  analysisStepsSection.className = "wordwise-analysis-section";
+  analysisStepsSection.className = "wordwise-analysis-section wordwise-analysis-section--steps";
   const analysisStepsLabel = document.createElement("div");
   analysisStepsLabel.className = "wordwise-analysis-label";
   analysisStepsLabel.textContent = "分析过程";
@@ -1341,9 +1787,17 @@ function createTooltipRoot() {
   const analysisTranslationLabel = document.createElement("div");
   analysisTranslationLabel.className = "wordwise-analysis-label";
   analysisTranslationLabel.textContent = "翻译";
+  const analysisTranslationCardRow = document.createElement("div");
+  analysisTranslationCardRow.className = "wordwise-analysis-card-row";
+  const analysisTranslationCardSpacer = document.createElement("div");
+  analysisTranslationCardSpacer.className = "wordwise-analysis-card-spacer";
+  const analysisTranslationCardPanel = document.createElement("div");
+  analysisTranslationCardPanel.className = "wordwise-analysis-card-panel wordwise-analysis-card-panel--tone-1";
   const analysisTranslationEl = document.createElement("div");
   analysisTranslationEl.className = "wordwise-analysis-translation";
-  analysisTranslationSection.append(analysisTranslationLabel, analysisTranslationEl);
+  analysisTranslationCardPanel.append(analysisTranslationEl);
+  analysisTranslationCardRow.append(analysisTranslationCardSpacer, analysisTranslationCardPanel);
+  analysisTranslationSection.append(analysisTranslationLabel, analysisTranslationCardRow);
 
   translationEl.append(primaryTranslationEl, secondaryTranslationEl, englishExplanationEl);
   actionsEl.append(llmButton, selectionAnalysisButton, ignoreButton, button);
@@ -1781,6 +2235,7 @@ function hideSentenceAnalysis(options?: { preservePanel?: boolean }) {
     tooltip.analysisStatusEl.textContent = "";
     tooltip.analysisStatusEl.dataset.loading = "false";
     tooltip.analysisLoadingEl.dataset.visible = "false";
+    tooltip.analysisView.dataset.phase = "idle";
     tooltip.analysisSourceEl.innerHTML = "";
     tooltip.analysisLegendEl.innerHTML = "";
     tooltip.analysisTranslationEl.textContent = "";
@@ -1913,8 +2368,9 @@ function showSentenceAnalysisButton(context: SentenceSelectionContext) {
   tooltip.analysisTriggerButton.style.display = "inline-flex";
   tooltip.analysisTriggerButton.textContent = "开始分析";
   tooltip.analysisStatusEl.dataset.loading = "false";
-  tooltip.analysisStatusEl.textContent = "按四步法：先切层次，再抓主干，再把修饰、非谓语和逻辑关系一起理顺，最后按中文译序顺译。";
+  tooltip.analysisStatusEl.textContent = "";
   tooltip.analysisLoadingEl.dataset.visible = "false";
+  tooltip.analysisView.dataset.phase = "idle";
   tooltip.analysisSourceEl.textContent = context.text;
   tooltip.analysisLegendEl.innerHTML = "";
   tooltip.analysisTranslationEl.textContent = "";
@@ -2014,19 +2470,23 @@ function renderSentenceAnalysisPanel(
   tooltip.closeButton.dataset.visible = "true";
   tooltip.analysisTitleEl.textContent = "长难句分析";
   tooltip.analysisTriggerButton.style.display = "none";
-  tooltip.analysisStatusEl.textContent = "四步法：先找连接标志切层次，再抓主句主干，再把修饰、非谓语和逻辑关系一起理顺，最后按中文译序顺译。";
+  tooltip.analysisStatusEl.textContent = "";
   tooltip.analysisStatusEl.dataset.loading = "false";
   tooltip.analysisLoadingEl.dataset.visible = "false";
+  tooltip.analysisView.dataset.phase = "idle";
   tooltip.analysisSourceEl.innerHTML = renderSentenceWithClauseBlocks(result, context.text);
   tooltip.analysisLegendEl.innerHTML = renderLegendMarkup(result, context.text);
   tooltip.analysisTranslationEl.textContent = result.translation;
   tooltip.analysisStructureEl.textContent = result.structure;
-  tooltip.analysisStepsEl.innerHTML = result.analysisSteps
-    .map((step) => `<li>${formatAnalysisStepMarkup(step)}</li>`)
-    .join("");
+  tooltip.analysisStepsEl.innerHTML = renderAnalysisStepsMarkup(result.analysisSteps);
   tooltip.host.style.display = "block";
   analysisPanelOpen = true;
   positionSentenceAnalysisPanel(context.rect);
+  requestAnimationFrame(() => {
+    if (tooltip.analysisView.dataset.visible === "true") {
+      tooltip.analysisView.dataset.phase = "ready";
+    }
+  });
 }
 
 async function ensureSettings(): Promise<UserSettings> {
@@ -2445,8 +2905,9 @@ async function requestSentenceAnalysis(context: SentenceSelectionContext) {
   tooltip.analysisTitleEl.textContent = "长难句分析";
   tooltip.analysisTriggerButton.style.display = "none";
   tooltip.analysisStatusEl.dataset.loading = "true";
-  tooltip.analysisStatusEl.textContent = "正在分析长难句";
+  tooltip.analysisStatusEl.textContent = "";
   tooltip.analysisLoadingEl.dataset.visible = "true";
+  tooltip.analysisView.dataset.phase = "loading";
   tooltip.analysisSourceEl.textContent = context.text;
   tooltip.analysisLegendEl.innerHTML = "";
   tooltip.analysisTranslationEl.textContent = "";
@@ -2482,6 +2943,7 @@ async function requestSentenceAnalysis(context: SentenceSelectionContext) {
   if (!response.ok || !response.result) {
     tooltip.analysisStatusEl.dataset.loading = "false";
     tooltip.analysisLoadingEl.dataset.visible = "false";
+    tooltip.analysisView.dataset.phase = "idle";
     tooltip.analysisStatusEl.textContent = response.error ?? "长难句分析暂不可用。";
     return;
   }
