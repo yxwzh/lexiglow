@@ -1370,12 +1370,13 @@ function createTooltipRoot() {
   analysisLoadingEl.className = "wordwise-analysis-loading";
   analysisLoadingEl.dataset.visible = "false";
   analysisLoadingEl.innerHTML = `
-    <div class="wordwise-analysis-loading-title">正在按田静风格拆句，请稍等</div>
+    <div class="wordwise-analysis-loading-title">正在按五步法拆句并顺译，请稍等</div>
     <div class="wordwise-analysis-loading-steps">
       <div class="wordwise-analysis-loading-step">1. 正在切层次，先找连接标志和关系词</div>
       <div class="wordwise-analysis-loading-step">2. 正在抓主干，定位主句主语和谓语</div>
-      <div class="wordwise-analysis-loading-step">3. 正在拆枝叶，整理非谓语和修饰成分</div>
-      <div class="wordwise-analysis-loading-step">4. 正在顺译，组织自然的中文表达</div>
+      <div class="wordwise-analysis-loading-step">3. 正在拆枝叶，整理从句、修饰和并列层次</div>
+      <div class="wordwise-analysis-loading-step">4. 正在定位非谓语并理清逻辑关系</div>
+      <div class="wordwise-analysis-loading-step">5. 正在顺译，组织自然的中文表达</div>
     </div>
   `;
 
@@ -1985,7 +1986,7 @@ function showSentenceAnalysisButton(context: SentenceSelectionContext) {
   tooltip.analysisTriggerButton.style.display = "inline-flex";
   tooltip.analysisTriggerButton.textContent = "开始分析";
   tooltip.analysisStatusEl.dataset.loading = "false";
-  tooltip.analysisStatusEl.textContent = "按原来的拆法：先切层次，再抓主干，再拆枝叶，最后顺译。";
+  tooltip.analysisStatusEl.textContent = "按五步法：先切层次，再抓主干，再拆枝叶，再看非谓语和逻辑，最后按中文译序顺译。";
   tooltip.analysisLoadingEl.dataset.visible = "false";
   tooltip.analysisSourceEl.textContent = context.text;
   tooltip.analysisLegendEl.innerHTML = "";
@@ -2086,7 +2087,7 @@ function renderSentenceAnalysisPanel(
   tooltip.closeButton.dataset.visible = "true";
   tooltip.analysisTitleEl.textContent = "长难句分析";
   tooltip.analysisTriggerButton.style.display = "none";
-  tooltip.analysisStatusEl.textContent = "田静风拆法：先找连接标志切层次，再抓主句主干，再拆非谓语和修饰成分，最后顺译。";
+  tooltip.analysisStatusEl.textContent = "五步法：先找连接标志切层次，再抓主句主干，再拆枝叶，再看非谓语和逻辑关系，最后按中文译序顺译。";
   tooltip.analysisStatusEl.dataset.loading = "false";
   tooltip.analysisLoadingEl.dataset.visible = "false";
   tooltip.analysisSourceEl.innerHTML = renderSentenceWithClauseBlocks(result, context.text);
