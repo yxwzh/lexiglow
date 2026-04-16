@@ -61,6 +61,7 @@ const TOOLTIP_STYLE = `
     position: absolute;
     top: 9px;
     right: 9px;
+    z-index: 3;
     width: 22px;
     height: 22px;
     border: 0;
@@ -209,20 +210,22 @@ const TOOLTIP_STYLE = `
   }
   .wordwise-translation[data-visible="true"] {
     display: block;
-    padding-top: 9px;
-    padding-left: 12px;
-    border-top: 1px solid rgba(148, 163, 184, 0.08);
-    border-left: 1px solid rgba(194, 65, 12, 0.1);
+    padding: 11px 12px 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 247, 239, 0.9));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.68),
+      0 8px 20px rgba(148, 163, 184, 0.08);
   }
   .wordwise-translation[data-compact="true"][data-visible="true"] {
-    padding-top: 8px;
+    padding-top: 10px;
   }
   .wordwise-word-view[data-layout="selection"] .wordwise-translation[data-visible="true"] {
-    padding-right: 34px;
-    padding-top: 0;
-    padding-left: 18px;
-    border-top: 0;
-    border-left: 1px solid rgba(59, 130, 246, 0.08);
+    margin-top: 2px;
+    padding-top: 14px;
+    padding-right: 50px;
   }
   .wordwise-translation[data-transition="loading"] {
     opacity: 0.68;
@@ -279,8 +282,8 @@ const TOOLTIP_STYLE = `
     font-size: 12px;
     line-height: 1.6;
     color: #6f8094;
-    margin-top: 7px;
-    padding-top: 7px;
+    margin-top: 8px;
+    padding-top: 8px;
     border-top: 1px solid rgba(148, 163, 184, 0.12);
     display: none;
   }
@@ -289,8 +292,8 @@ const TOOLTIP_STYLE = `
   }
   .wordwise-english-explanation {
     display: none;
-    margin-top: 7px;
-    padding-top: 7px;
+    margin-top: 8px;
+    padding-top: 8px;
     border-top: 1px solid rgba(148, 163, 184, 0.12);
   }
   .wordwise-english-explanation[data-visible="true"] {
@@ -366,7 +369,7 @@ const TOOLTIP_STYLE = `
   }
   .wordwise-word-view[data-layout="word"] .wordwise-actions {
     gap: 4px;
-    margin-top: 4px;
+    margin-top: 2px;
     margin-left: 10px;
     padding: 3px;
     border-radius: 12px;
@@ -415,9 +418,6 @@ const TOOLTIP_STYLE = `
     border-color: transparent;
     background: transparent;
   }
-  .wordwise-word-view[data-layout="word"] .wordwise-meta {
-    margin-top: -5px;
-  }
   .wordwise-word-view[data-layout="selection"] .wordwise-actions {
     gap: 4px;
     margin-top: 2px;
@@ -464,11 +464,15 @@ const TOOLTIP_STYLE = `
     justify-content: flex-end;
     gap: 8px;
     flex-wrap: wrap;
-    margin-top: -1px;
-    margin-bottom: -2px;
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
   }
   .wordwise-meta .wordwise-hint {
     max-width: 100%;
+  }
+  .wordwise-translation .wordwise-meta {
+    margin-bottom: 0;
   }
   .wordwise-meta-divider {
     display: none;
@@ -1926,7 +1930,6 @@ function createTooltipRoot() {
   translationEl.dataset.visible = "false";
   translationEl.dataset.compact = "false";
   translationEl.dataset.transition = "idle";
-
   const hintEl = document.createElement("div");
   hintEl.className = "wordwise-hint";
   hintEl.dataset.visible = "true";
@@ -2132,10 +2135,15 @@ function createTooltipRoot() {
   analysisTranslationCardRow.append(analysisTranslationCardSpacer, analysisTranslationCardPanel);
   analysisTranslationSection.append(analysisTranslationLabel, analysisTranslationCardRow);
 
-  translationEl.append(primaryTranslationEl, secondaryTranslationEl, englishExplanationEl);
+  translationEl.append(
+    primaryTranslationEl,
+    secondaryTranslationEl,
+    englishExplanationEl,
+    metaEl,
+  );
   actionsEl.append(actionIndicatorEl, llmButton, selectionAnalysisButton, ignoreButton, button);
   metaEl.append(hintEl, metaDividerEl, rankEl);
-  wordView.append(surfaceHeaderEl, pronunciationEl, translationEl, actionsEl, metaEl);
+  wordView.append(surfaceHeaderEl, pronunciationEl, translationEl, actionsEl);
   analysisHeader.append(analysisTitleEl, analysisTriggerButton);
   analysisView.append(
     analysisHeader,
@@ -2811,7 +2819,7 @@ function renderSelectionTooltip(
   tooltip.secondaryTranslationEl.dataset.visible = result?.sentenceTranslation ? "true" : "false";
   resetEnglishExplanationDisplay();
   setTranslationPresentation("selection", result?.translation, result?.sentenceTranslation);
-  tooltip.translationEl.dataset.visible = result?.translation ? "true" : "false";
+  tooltip.translationEl.dataset.visible = "true";
   tooltip.hintEl.dataset.visible = "true";
   tooltip.hintEl.dataset.loading = "false";
   tooltip.hintEl.dataset.kind = "status";
@@ -2929,7 +2937,7 @@ function renderTooltip(result: LexiconLookupResult, rect: DOMRect) {
     result.sentenceTranslation,
     result.englishExplanation,
   );
-  tooltip.translationEl.dataset.visible = result.translation ? "true" : "false";
+  tooltip.translationEl.dataset.visible = "true";
   tooltip.hintEl.dataset.visible = result.translation ? "false" : "true";
   tooltip.hintEl.dataset.loading = "false";
   if (!result.translation) {
@@ -3157,7 +3165,7 @@ async function requestTranslation(provider: TranslationProviderChoice) {
   const preservingPreviousResult = beginTranslationTransition();
 
   if (!preservingPreviousResult) {
-    tooltip.translationEl.dataset.visible = "false";
+    tooltip.translationEl.dataset.visible = "true";
     tooltip.translationEl.dataset.compact = "false";
     setPrimaryTranslationContent();
     tooltip.secondaryTranslationEl.textContent = "";
