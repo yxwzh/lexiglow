@@ -1,0 +1,98 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="84" y1="64" x2="1180" y2="576" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F9F1E1"/>
+      <stop offset="0.5" stop-color="#F5E7D3"/>
+      <stop offset="1" stop-color="#EEDFCB"/>
+    </linearGradient>
+    <radialGradient id="glowLeft" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(192 136) rotate(24) scale(360 220)">
+      <stop stop-color="#FFD56F" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#FFD56F" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowRight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1090 500) rotate(180) scale(320 190)">
+      <stop stop-color="#E0B357" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#E0B357" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shell" x1="80" y1="84" x2="1200" y2="548" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF8" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#FFF8ED" stop-opacity="0.76"/>
+    </linearGradient>
+    <linearGradient id="browser" x1="544" y1="118" x2="1158" y2="536" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF9"/>
+      <stop offset="1" stop-color="#FFF9F0"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="576" y1="160" x2="1126" y2="494" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFFCF6"/>
+    </linearGradient>
+    <filter id="browserShadow" x="494" y="92" width="712" height="472" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="20"/>
+      <feGaussianBlur stdDeviation="24"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.101961 0 0 0 0 0.133333 0 0 0 0 0.203922 0 0 0 0.16 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" rx="36" fill="url(#bg)"/>
+  <ellipse cx="192" cy="136" rx="318" ry="208" fill="url(#glowLeft)"/>
+  <ellipse cx="1090" cy="500" rx="274" ry="168" fill="url(#glowRight)"/>
+  <rect x="78" y="84" width="1124" height="472" rx="32" fill="url(#shell)" stroke="#E7DBC6"/>
+
+  <text x="132" y="176" fill="#14213D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="64" font-weight="700">LexiGlow</text>
+  <text x="136" y="218" fill="#526072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="20" font-weight="600">Learn English inside your reading flow</text>
+
+  <text x="136" y="274" fill="#1E2A3E" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="18" font-weight="700">
+    <tspan x="136" dy="0">Hover for a fast Google result first.</tspan>
+    <tspan x="136" dy="28">Open deeper context help only when needed.</tspan>
+  </text>
+
+  <rect x="136" y="332" width="118" height="34" rx="17" fill="#FFE29A"/>
+  <text x="157" y="354" fill="#1A2438" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13" font-weight="700">Fast Google</text>
+
+  <rect x="266" y="332" width="138" height="34" rx="17" fill="#E4ECF8"/>
+  <text x="289" y="354" fill="#2B425D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13" font-weight="700">Context Translate</text>
+
+  <rect x="416" y="332" width="112" height="34" rx="17" fill="#EBF3E7"/>
+  <text x="441" y="354" fill="#345C3A" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13" font-weight="700">In-Page</text>
+
+  <text x="136" y="410" fill="#697485" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="15" font-weight="600">Lookup, pronunciation, review, and sentence help</text>
+  <text x="136" y="436" fill="#697485" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="15" font-weight="600">stay layered directly on the page you are reading.</text>
+
+  <g filter="url(#browserShadow)">
+    <rect x="538" y="124" width="620" height="392" rx="28" fill="url(#browser)" stroke="#EEDFCB"/>
+    <rect x="570" y="164" width="556" height="320" rx="22" fill="url(#screen)" stroke="#F0E4D3"/>
+
+    <circle cx="598" cy="188" r="5" fill="#FFB877"/>
+    <circle cx="616" cy="188" r="5" fill="#F4D46B"/>
+    <circle cx="634" cy="188" r="5" fill="#8CCE8B"/>
+    <rect x="668" y="176" width="216" height="24" rx="12" fill="#F5EEE2"/>
+    <text x="684" y="192" fill="#7B818D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="11" font-weight="700">Reading an English webpage</text>
+
+    <text x="606" y="236" fill="#1F2937" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="16">The editor keeps more</text>
+    <text x="780" y="236" fill="#C68812" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="16" font-weight="700">signal</text>
+    <text x="840" y="236" fill="#1F2937" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="16">inside the reading flow,</text>
+    <text x="606" y="262" fill="#1F2937" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="16">so readers only ask for deeper help when</text>
+    <text x="606" y="288" fill="#1F2937" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="16">the default answer is not enough.</text>
+
+    <rect x="646" y="304" width="274" height="128" rx="20" fill="#FFFEFA" stroke="#EFDCC7"/>
+    <text x="668" y="338" fill="#162338" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="28" font-weight="700">signal</text>
+    <text x="668" y="362" fill="#5E6878" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="12">/ˈsɪɡnəl/  UK   /ˈsɪɡnəl/  US</text>
+    <text x="668" y="391" fill="#1F2937" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif" font-size="15" font-weight="700">n. 信号；有效信息</text>
+    <text x="668" y="411" fill="#1F2937" font-family="'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif" font-size="15" font-weight="700">消息里真正有用的部分</text>
+
+    <rect x="946" y="308" width="124" height="26" rx="13" fill="#E4ECF8"/>
+    <text x="965" y="325" fill="#2B425D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="11" font-weight="700">Context Mode</text>
+
+    <rect x="946" y="344" width="124" height="26" rx="13" fill="#EBF3E7"/>
+    <text x="961" y="361" fill="#345C3A" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="11" font-weight="700">Simple English</text>
+
+    <rect x="946" y="380" width="124" height="26" rx="13" fill="#F3E8DB"/>
+    <text x="965" y="397" fill="#5B4330" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="11" font-weight="700">Sentence View</text>
+
+    <rect x="946" y="416" width="124" height="26" rx="13" fill="#F3F0E4"/>
+    <text x="979" y="433" fill="#5B6472" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="11" font-weight="700">Review</text>
+  </g>
+</svg>

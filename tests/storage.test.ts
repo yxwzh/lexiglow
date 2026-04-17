@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { STORAGE_SETTINGS_KEY } from "../src/shared/constants";
+import { STORAGE_SETTINGS_KEY, STORAGE_TRANSLATOR_SETTINGS_KEY } from "../src/shared/constants";
 import { DEFAULT_SETTINGS } from "../src/shared/settings";
-import { getSettings, saveSettings } from "../src/shared/storage";
+import { DEFAULT_TRANSLATOR_SETTINGS } from "../src/shared/translator";
+import {
+  getSettings,
+  getTranslatorSettings,
+  saveSettings,
+  saveTranslatorSettings,
+} from "../src/shared/storage";
 
 type StorageAreaMock = {
   get: ReturnType<typeof vi.fn>;
@@ -99,6 +105,28 @@ describe("settings storage", () => {
     expect(localArea.set).toHaveBeenCalledWith({
       [STORAGE_SETTINGS_KEY]: expect.objectContaining({
         knownBaseRank: 2468,
+      }),
+    });
+    expect(syncArea.set).not.toHaveBeenCalled();
+  });
+
+  test("defaults translator settings to zh-CN learner language", async () => {
+    const settings = await getTranslatorSettings();
+
+    expect(settings).toEqual(expect.objectContaining({
+      learnerLanguageCode: "zh-CN",
+    }));
+  });
+
+  test("writes translator settings to local storage only", async () => {
+    await saveTranslatorSettings({
+      ...DEFAULT_TRANSLATOR_SETTINGS,
+      learnerLanguageCode: "ja",
+    });
+
+    expect(localArea.set).toHaveBeenCalledWith({
+      [STORAGE_TRANSLATOR_SETTINGS_KEY]: expect.objectContaining({
+        learnerLanguageCode: "ja",
       }),
     });
     expect(syncArea.set).not.toHaveBeenCalled();

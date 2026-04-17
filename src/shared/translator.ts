@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { lookupRank, resolveLookupLemma } from "./lexicon";
 import { countTotalKnown, estimateLearnerLevel, resolveWordFlags } from "./settings";
 import type {
@@ -8,6 +9,7 @@ import type {
   SentenceClauseBlockType,
   SentenceHighlight,
   SentenceHighlightCategory,
+  SupportedLearnerLanguageCode,
   TranslationResult,
   TranslatorSettings,
   UserSettings,
@@ -19,10 +21,38 @@ export const DEFAULT_TRANSLATOR_SETTINGS: TranslatorSettings = {
   providerModel: "gpt-4.1-mini",
   apiKey: "",
   fallbackToGoogle: true,
+  learnerLanguageCode: "zh-CN",
   llmDisplayMode: "word",
   cacheDurationValue: 30,
   cacheDurationUnit: "minutes",
 };
+
+export const LEARNER_LANGUAGE_OPTIONS = [
+  { code: "zh-CN", label: "Chinese (Simplified)", nativeLabel: "简体中文", promptName: "Simplified Chinese" },
+  { code: "zh-TW", label: "Chinese (Traditional)", nativeLabel: "繁體中文", promptName: "Traditional Chinese" },
+  { code: "ja", label: "Japanese", nativeLabel: "日本語", promptName: "Japanese" },
+  { code: "ko", label: "Korean", nativeLabel: "한국어", promptName: "Korean" },
+  { code: "fr", label: "French", nativeLabel: "Français", promptName: "French" },
+  { code: "de", label: "German", nativeLabel: "Deutsch", promptName: "German" },
+  { code: "es", label: "Spanish", nativeLabel: "Español", promptName: "Spanish" },
+  { code: "pt-BR", label: "Portuguese (Brazil)", nativeLabel: "Português (Brasil)", promptName: "Brazilian Portuguese" },
+  { code: "ru", label: "Russian", nativeLabel: "Русский", promptName: "Russian" },
+  { code: "it", label: "Italian", nativeLabel: "Italiano", promptName: "Italian" },
+  { code: "tr", label: "Turkish", nativeLabel: "Türkçe", promptName: "Turkish" },
+  { code: "vi", label: "Vietnamese", nativeLabel: "Tiếng Việt", promptName: "Vietnamese" },
+  { code: "id", label: "Indonesian", nativeLabel: "Bahasa Indonesia", promptName: "Indonesian" },
+  { code: "th", label: "Thai", nativeLabel: "ไทย", promptName: "Thai" },
+  { code: "ar", label: "Arabic", nativeLabel: "العربية", promptName: "Arabic" },
+] as const satisfies ReadonlyArray<{
+  code: SupportedLearnerLanguageCode;
+  label: string;
+  nativeLabel: string;
+  promptName: string;
+}>;
+
+const LEARNER_LANGUAGE_MAP = new Map(
+  LEARNER_LANGUAGE_OPTIONS.map((option) => [option.code, option]),
+);
 
 const LLM_PROVIDER_DEFAULTS = {
   openai: {
@@ -54,6 +84,126 @@ export function getDefaultLlmBaseUrl(provider: TranslatorSettings["llmProvider"]
 
 export function getDefaultLlmModel(provider: TranslatorSettings["llmProvider"]): string {
   return LLM_PROVIDER_DEFAULTS[provider].model;
+}
+
+function resolveLearnerLanguageOption(
+  code?: string,
+): (typeof LEARNER_LANGUAGE_OPTIONS)[number] {
+  return LEARNER_LANGUAGE_MAP.get(code as SupportedLearnerLanguageCode) ?? LEARNER_LANGUAGE_OPTIONS[0];
+}
+
+export function getLearnerLanguageLabel(code?: string): string {
+  return resolveLearnerLanguageOption(code).label;
+}
+
+function getLearnerLanguagePromptLabel(code?: string): string {
+  const option = resolveLearnerLanguageOption(code);
+  return `${option.promptName} (${option.code})`;
+}
+
+function buildMeaningPromptFragment(code?: string): string {
+  return `the learner's language, ${getLearnerLanguagePromptLabel(code)}`;
+}
+
+function buildEnglishExplanationSystemPrompt(
+  settings: TranslatorSettings,
+  learnerLevel: LearnerLevelBand,
+  knownCount: number,
+): string {
+  const meaningLanguage = buildMeaningPromptFragment(settings.learnerLanguageCode);
+
+  return (
+    `${buildLearnerLevelInstruction(learnerLevel, knownCount)} ` +
+    `You explain English words to learners who prefer ${meaningLanguage}. ` +
+    `First identify the exact meaning of the target word in ${meaningLanguage}. ` +
+    "Then write exactly one short English sentence that explains the word in that context. " +
+    "Use simple, common English. Avoid advanced synonyms, long clauses, and dictionary jargon. " +
+    "Avoid using the target word or its inflections in the explanation unless absolutely necessary. " +
+    'Return strict JSON only: {"meaning":"<precise meaning in the learner language>","explanation":"<one short easy English sentence>"}. No markdown, no extra text.'
+  );
+}
+
+function buildWordTranslationSystemPrompt(
+  settings: TranslatorSettings,
+  learnerLevel: LearnerLevelBand,
+  knownCount: number,
+  mode: TranslatorSettings["llmDisplayMode"],
+): string {
+  const meaningLanguage = buildMeaningPromptFragment(settings.learnerLanguageCode);
+
+  if (mode === "english") {
+    return (
+      `${buildLearnerLevelInstruction(learnerLevel, knownCount)} ` +
+      "Translate the target English word or short phrase based on the sentence context. " +
+      `First identify the exact meaning in ${meaningLanguage}. ` +
+      "Then write exactly one short English sentence that explains the word in context. " +
+      "Also identify the single best part of speech in this sentence using one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, determiner, auxiliary, phrase. " +
+      "Use simple, common English. Avoid advanced synonyms, long clauses, and dictionary jargon. " +
+      "Avoid using the target word or its inflections in the explanation unless absolutely necessary. " +
+      'Return strict JSON only: {"word":"<precise meaning in the learner language>","english":"<one short easy English sentence>","pos":"<single best part of speech in context>"}. No markdown or extra text.'
+    );
+  }
+
+  if (mode === "sentence") {
+    return (
+      "Translate the target English word or short phrase based on the sentence context. " +
+      "Also identify the single best part of speech in this sentence using one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, determiner, auxiliary, phrase. " +
+      `Return strict JSON only: {"word":"<concise meaning in ${meaningLanguage}>","sentence":"<full sentence translation in ${meaningLanguage}>","pos":"<single best part of speech in context>"}. No markdown, no explanation.`
+    );
+  }
+
+  return (
+    "Translate the target English word or short phrase based on the sentence context. " +
+    "Also identify the single best part of speech in this sentence using one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, determiner, auxiliary, phrase. " +
+    `Return strict JSON only: {"word":"<concise meaning in ${meaningLanguage}>","pos":"<single best part of speech in context>"}. No markdown or extra text.`
+  );
+}
+
+function buildSelectionTranslationSystemPrompt(settings: TranslatorSettings): string {
+  const meaningLanguage = buildMeaningPromptFragment(settings.learnerLanguageCode);
+
+  return (
+    `Translate the selected English text into natural ${meaningLanguage}. ` +
+    "If the selected text is a single word or a short phrase, translate that unit precisely based on context. " +
+    "If the selected text is a clause or a full sentence, translate the whole selected text completely and naturally. " +
+    'Return strict JSON only: {"word":"<translation of the selected text in the learner language>"} with no markdown or extra text.'
+  );
+}
+
+function buildSentenceAnalysisPrompt(settings: TranslatorSettings): string {
+  const meaningLanguage = buildMeaningPromptFragment(settings.learnerLanguageCode);
+
+  return [
+    `You are an English sentence analysis tutor for learners who prefer ${meaningLanguage}.`,
+    "Your goal is to support accurate translation, not abstract grammar discussion.",
+    "Every explanation must show how structure affects meaning and the learner's translation order.",
+    "Keep the wording concrete, useful, and easy to review.",
+    "",
+    "Return strict compact JSON only with these keys:",
+    "translation, structure, analysisSteps, highlights, clauseBlocks",
+    "",
+    "Field requirements:",
+    `1. translation: output one polished ${meaningLanguage} sentence for the whole English sentence. It must be faithful, precise, natural, and suitable for technical reading. Do not translate word by word. Prefer established wording when appropriate.`,
+    "2. structure: output one short English backbone sentence with branches removed. Keep only the clause skeleton, not a learner-language explanation. Do not copy the whole original sentence. Do not include sentence-opening adverbs such as presently or currently. Do not keep long modifier chains, relative clauses, subordinate clauses, participial branches, or prepositional detail that is not part of the skeleton. Keep only backbone subject + predicate + object/complement, or at most two backbone clauses if there is true top-level coordination. Keep each backbone clause within about 200 English words. If structure is close to the full sentence, it is wrong.",
+    `3. analysisSteps: output exactly 4 ${meaningLanguage} sentences in this order:`,
+    "   Step 1: cut the sentence into layers by connectors, punctuation, clauses, coordination, and nonfinite structures.",
+    "   Step 2: identify the main clause subject, predicate, object or complement, and state the core meaning.",
+    "   Step 3: explain logical groups, clauses, nonfinite phrases, modifiers, and what each part modifies.",
+    "   Step 4: explain the learner-language translation order first and then support the final translation.",
+    "   Keep each analysis step concise and review-friendly.",
+    "4. highlights: output 5 to 8 strings in the format <category>|||<exact single word from sentence>. Allowed categories are [subject, predicate, nonfinite, conjunction, relative, preposition]. Choose structural signal words rather than ordinary content words. For medium or long sentences, prefer 6 to 8 highlights when possible. Each highlight must use the category that best matches the word's grammatical role in this sentence.",
+    "   For conjunction, use only true connectors or subordinators such as and, but, although, because, if, while, when, since, whether. Do not use sentence adverbs or discourse markers such as presently, currently, now, overall, generally.",
+    "   For relative, use only real relative words such as which, who, whom, whose, where, when, why, or that when it truly introduces a clause.",
+    "   Never highlight possessive determiners or simple pronouns such as my, your, his, her, its, our, their, it, they, them, this, these, those.",
+    '   Never highlight plain "that" when it is only a determiner, for example in "that data".',
+    "5. clauseBlocks: output 2 to 6 strings in the format <type>|||<exact original text chunk>. Allowed types are [main, relative, subordinate, nonfinite, parallel, modifier]. The clauseBlocks must cover the whole sentence from first word to last word with no missing words and no overlap. Split long parts at commas, relative words, subordinators, coordinators, or nonfinite markers when that improves clarity, but do not isolate a bare preposition by itself.",
+    "",
+    "Final rules:",
+    "The four steps must serve translation, avoid empty jargon, and focus on how structure changes understanding and translation order.",
+    "The output must be valid JSON parsable by JSON.parse.",
+    "Do not include markdown fences.",
+    "Do not include any commentary outside the JSON object.",
+  ].join("\n");
 }
 
 async function fetchWithTimeout(
@@ -214,12 +364,13 @@ function getLlmProviderTag(): string {
 
 export function getLlmCacheSignature(settings: Pick<
   TranslatorSettings,
-  "llmProvider" | "providerBaseUrl" | "providerModel"
+  "llmProvider" | "providerBaseUrl" | "providerModel" | "learnerLanguageCode"
 >): string {
   return [
     settings.llmProvider,
     settings.providerBaseUrl.trim().replace(/\/+$/, ""),
     settings.providerModel.trim(),
+    settings.learnerLanguageCode,
   ].join("::");
 }
 
@@ -1177,9 +1328,7 @@ async function requestEnglishExplanation({
   const learnerLevel = estimateLearnerLevel(userSettings);
   const { content } = await requestLlmText({
     settings,
-    systemPrompt:
-      `${buildLearnerLevelInstruction(learnerLevel, knownCount)} ` +
-      'You explain English words to Chinese learners. First identify the exact Chinese meaning of the target word in the given sentence context. Then write exactly one short English sentence that explains the word in that context. Use simple, common English. Avoid advanced synonyms, long clauses, and dictionary jargon. Avoid using the target word or its inflections in the explanation unless absolutely necessary. Return strict JSON only: {"meaning":"<precise Chinese meaning in context>","explanation":"<one short easy English sentence>"}. No markdown, no extra text.',
+    systemPrompt: buildEnglishExplanationSystemPrompt(settings, learnerLevel, knownCount),
     userPrompt: stricterPrompt
       ? `word: ${surface}\nsentence: ${sentence}\nextra rule: ${stricterPrompt}`
       : `word: ${surface}\nsentence: ${sentence}`,
@@ -1204,7 +1353,7 @@ export async function explainWordInEnglishWithLlm({
   userSettings: UserSettings;
 }): Promise<EnglishExplanationResult> {
   if (!settings.apiKey.trim()) {
-    throw new Error("请先在设置页填写 LLM API Key。");
+    throw new Error(t(settings.learnerLanguageCode, "errorEnterApiKey"));
   }
 
   const sentence = trimContext(contextText || surface);
@@ -1269,11 +1418,7 @@ export async function translateWithLlm({
   try {
     ({ content } = await requestLlmText({
       settings,
-      systemPrompt: needsEnglishExplanation
-        ? `${buildLearnerLevelInstruction(learnerLevel, knownCount)} Translate the target English word or short phrase based on the sentence context. First identify the exact Chinese meaning in context. Then write exactly one short English sentence that explains the word in context. Also identify the single best part of speech in this sentence using one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, determiner, auxiliary, phrase. Use simple, common English. Avoid advanced synonyms, long clauses, and dictionary jargon. Avoid using the target word or its inflections in the explanation unless absolutely necessary. Return strict JSON only: {"word":"<precise Chinese meaning in context>","english":"<one short easy English sentence>","pos":"<single best part of speech in context>"}. No markdown or extra text.`
-        : needsSentence
-          ? 'Translate the target English word or short phrase based on the sentence context. Also identify the single best part of speech in this sentence using one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, determiner, auxiliary, phrase. Return strict JSON only: {"word":"<concise Chinese meaning of the word or phrase>","sentence":"<full Chinese translation of the sentence>","pos":"<single best part of speech in context>"}. No markdown, no explanation.'
-          : 'Translate the target English word or short phrase into concise Chinese based on the sentence context. Also identify the single best part of speech in this sentence using one of: noun, verb, adjective, adverb, pronoun, preposition, conjunction, determiner, auxiliary, phrase. Return strict JSON only: {"word":"<concise Chinese meaning>","pos":"<single best part of speech in context>"}.',
+      systemPrompt: buildWordTranslationSystemPrompt(settings, learnerLevel, knownCount, mode),
       userPrompt: `word: ${surface}\nsentence: ${sentence}`,
       temperature: 0,
       maxTokens: needsEnglishExplanation ? 140 : needsSentence ? 96 : 40,
@@ -1353,8 +1498,7 @@ export async function translateSelectionWithLlm({
   try {
     ({ content } = await requestLlmText({
       settings,
-      systemPrompt:
-        'Translate the selected English text into natural Chinese. If the selected text is a single word or a short phrase, translate that unit precisely based on context. If the selected text is a clause or a full sentence, translate the whole selected text completely and naturally. Return strict JSON only: {"word":"<Chinese translation of the selected text>"} with no markdown or extra text.',
+      systemPrompt: buildSelectionTranslationSystemPrompt(settings),
       userPrompt: `selected_text: ${selection}\ncontext: ${context}`,
       temperature: 0,
       maxTokens: 180,
@@ -1392,41 +1536,11 @@ export async function analyzeSentenceWithLlm({
   settings: TranslatorSettings;
 }): Promise<SentenceAnalysisResult> {
   if (!settings.apiKey.trim()) {
-    throw new Error("请先在设置页填写 LLM API Key。");
+    throw new Error(t(settings.learnerLanguageCode, "errorEnterApiKey"));
   }
 
   const sentence = text.trim();
-  const analysisPrompt = [
-    "You are an English sentence analysis tutor for Chinese learners.",
-    "Your goal is to support accurate translation, not abstract grammar discussion.",
-    "Every explanation must show how structure affects meaning and Chinese word order.",
-    "Keep the wording concrete, useful, and easy to review.",
-    "",
-    "Return strict compact JSON only with these keys:",
-    "translation, structure, analysisSteps, highlights, clauseBlocks",
-    "",
-    "Field requirements:",
-    '1. translation: output one polished Chinese sentence for the whole English sentence. It must be faithful, precise, natural, and suitable for technical reading. Do not translate word by word. Prefer established Chinese technical wording when appropriate.',
-    '2. structure: output one short English backbone sentence with branches removed. Keep only the clause skeleton, not a Chinese explanation. Do not copy the whole original sentence. Do not include sentence-opening adverbs such as presently or currently. Do not keep long modifier chains, relative clauses, subordinate clauses, participial branches, or prepositional detail that is not part of the skeleton. Keep only backbone subject + predicate + object/complement, or at most two backbone clauses if there is true top-level coordination. Keep each backbone clause within about 200 English words. If structure is close to the full sentence, it is wrong.',
-    "3. analysisSteps: output exactly 4 Chinese sentences in this order:",
-    "   Step 1: cut the sentence into layers by connectors, punctuation, clauses, coordination, and nonfinite structures.",
-    "   Step 2: identify the main clause subject, predicate, object or complement, and state the core meaning.",
-    "   Step 3: explain logical groups, clauses, nonfinite phrases, modifiers, and what each part modifies.",
-    "   Step 4: explain the Chinese translation order first and then support the final translation.",
-    "   Each analysis step must stay within 500 Chinese characters.",
-    "4. highlights: output 5 to 8 strings in the format <category>|||<exact single word from sentence>. Allowed categories are [subject, predicate, nonfinite, conjunction, relative, preposition]. Choose structural signal words rather than ordinary content words. For medium or long sentences, prefer 6 to 8 highlights when possible. Each highlight must use the category that best matches the word's grammatical role in this sentence.",
-    "   For conjunction, use only true connectors or subordinators such as and, but, although, because, if, while, when, since, whether. Do not use sentence adverbs or discourse markers such as presently, currently, now, overall, generally.",
-    "   For relative, use only real relative words such as which, who, whom, whose, where, when, why, or that when it truly introduces a clause.",
-    "   Never highlight possessive determiners or simple pronouns such as my, your, his, her, its, our, their, it, they, them, this, these, those.",
-    '   Never highlight plain "that" when it is only a determiner, for example in "that data".',
-    "5. clauseBlocks: output 2 to 6 strings in the format <type>|||<exact original text chunk>. Allowed types are [main, relative, subordinate, nonfinite, parallel, modifier]. The clauseBlocks must cover the whole sentence from first word to last word with no missing words and no overlap. Split long parts at commas, relative words, subordinators, coordinators, or nonfinite markers when that improves clarity, but do not isolate a bare preposition by itself.",
-    "",
-    "Final rules:",
-    "The four steps must serve translation, avoid empty jargon, and focus on how structure changes understanding and translation order.",
-    "The output must be valid JSON parsable by JSON.parse.",
-    "Do not include markdown fences.",
-    "Do not include any commentary outside the JSON object.",
-  ].join("\n");
+  const analysisPrompt = buildSentenceAnalysisPrompt(settings);
 
   try {
     const result = await requestSentenceAnalysis({
@@ -1457,11 +1571,11 @@ export async function analyzeSentenceWithLlm({
     }
 
     if (error instanceof SentenceAnalysisFormatError) {
-      throw new Error("长难句分析返回格式不稳定，请重试一次。");
+      throw new Error(t(settings.learnerLanguageCode, "errorSentenceAnalysisUnstable"));
     }
 
     if (error instanceof SentenceAnalysisRequestError) {
-      throw new Error("长难句分析返回格式不稳定，请重试一次。");
+      throw new Error(t(settings.learnerLanguageCode, "errorSentenceAnalysisUnstable"));
     }
 
     throw error;
@@ -1471,13 +1585,15 @@ export async function analyzeSentenceWithLlm({
 export async function translateWithGoogle({
   lemma,
   surface,
+  learnerLanguageCode,
 }: {
   lemma: string;
   surface: string;
+  learnerLanguageCode: SupportedLearnerLanguageCode;
 }): Promise<TranslationResult> {
   const query = encodeURIComponent(surface || lemma);
   const url =
-    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${query}`;
+    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${encodeURIComponent(learnerLanguageCode)}&dt=t&q=${query}`;
 
   const response = await fetchWithTimeout(url, {}, WORD_TRANSLATION_REQUEST_TIMEOUT_MS);
 
@@ -1518,6 +1634,7 @@ export function sanitizeTranslatorSettings(
     providerModel: input?.providerModel?.trim() || getDefaultLlmModel(llmProvider),
     apiKey: input?.apiKey?.trim() ?? "",
     fallbackToGoogle: input?.fallbackToGoogle ?? true,
+    learnerLanguageCode: resolveLearnerLanguageOption(input?.learnerLanguageCode).code,
     llmDisplayMode:
       input?.llmDisplayMode === "sentence"
         ? "sentence"

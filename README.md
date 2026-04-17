@@ -1,13 +1,11 @@
-# LexiGlow | 在工作流里顺手学英语
+# LexiGlow | Learn English Inside Your Workflow
 
-![LexiGlow banner showing the in-page tooltip workflow](./assets/lexiglow-banner.svg)
+[简体中文说明](./README.zh-CN.md)
 
-<p align="center">
-  默认用 Google 快速查词，只有在需要更高质量时才切到语境翻译；复习、英英解释和长难句分析都留在当前页面完成。
-</p>
+![LexiGlow banner showing the in-page tooltip workflow](./assets/lexiglow-banner-en.svg)
 
 <p align="center">
-  Learn English inside your normal workflow with fast Google translation by default, context translation when needed, and explanations adapted to your vocabulary level.
+  Start with a fast Google result, expand to contextual translation only when needed, and keep review, pronunciation, English explanations, and sentence analysis inside the page you are already reading.
 </p>
 
 <p align="center">
@@ -24,53 +22,47 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/built%20with-TypeScript-2f74c0?style=flat-square" />
 </p>
 
-## LexiGlow 是什么
+## What LexiGlow Is
 
-LexiGlow 是一个面向中文用户的 Chrome 英语阅读插件。它不是让你切出去背词，而是把查词、复习、发音、语境翻译、英英解释和长难句分析直接叠加到你平时的网页阅读里。
+LexiGlow is a Chrome extension for learning English while reading real pages on the web. Instead of pushing you into a separate flashcard flow, it overlays lookup, review, pronunciation, contextual translation, English explanations, and long-sentence analysis directly on top of your normal reading.
 
-它更适合这类阅读场景：
+It is designed for reading situations like these:
 
-- 悬停未掌握单词，先快速看默认翻译
-- 默认结果不够准时，再切到语境翻译
-- 遇到以前学过但又忘了的词，双击把它拉回复习
-- 想用英文理解单词时，直接看一版符合自己词汇水平的解释
-- 遇到复杂句子，直接在同一个 tooltip 里拆解理解
+- Hover an unfamiliar word and get a fast default translation first.
+- Expand to contextual translation only when the default result is not precise enough.
+- Double-click a word you used to know and bring it back into review.
+- Read a simple English explanation adapted to your current vocabulary range.
+- Break down a difficult sentence inside the same tooltip without leaving the page.
 
-## 为什么这样设计
+## Why It Is Built This Way
 
-- 默认轻量，按需增强：
-  先给 Google 结果，响应更快，也更省 token；只有在需要更高质量时再切到语境翻译
-- 不打断阅读：
-  悬停查词、选中文本翻译、长难句分析都留在当前页面完成
-- 解释跟着你的水平变化：
-  英英解释会参考你的已掌握词汇量，尽量用你看得懂的英语来解释新词
+- Lightweight by default, deeper help on demand.
+  Google handles the quick first pass, which is faster and cheaper. You only spend LLM calls when the context really matters.
+- Reading flow stays uninterrupted.
+  Hover lookup, selection translation, pronunciation, and sentence analysis all happen in place.
+- Explanations adapt to your level.
+  The English explanation mode takes your known-word range into account and tries to stay readable.
+- Learner language support is built in.
+  Translation output and extension UI can follow one of the built-in learner languages instead of staying fixed to Chinese.
 
-## 核心能力
+## Core Features
 
-- 悬浮查词：
-  默认显示 Google 翻译，适合高频阅读场景
-- 语境翻译：
-  当默认结果不够准时，再按需使用更高质量的上下文翻译
-- 多 LLM 提供商：
-  语境翻译支持在 OpenAI / Compatible、Gemini、Claude 之间切换
-- 双击恢复提示：
-  把学过但忘了的词重新拉回复习状态
-- 英英解释：
-  根据当前已掌握词汇量，动态生成更容易读懂的英文解释
-- 选中文本即翻译：
-  单词、词组、整句都能先看默认翻译
-- 英美发音：
-  支持英音 / 美音音标和点击播放
-- 长难句拆解：
-  在同一个 tooltip 内展示句块拆分、关键词提示、整句翻译和拆解过程
-- 学习状态累积：
-  已掌握词、复习词、忽略词会持续影响后续提示
-- 常见词形归并：
-  标记 `add` 为已掌握后，`adds / added / adding` 会一起按已掌握处理；`addition / additive` 这类派生词仍单独判断
+- Hover lookup with a fast default translation
+- On-demand contextual translation when the default answer is not enough
+- Multiple LLM providers: OpenAI / compatible, Gemini, and Claude
+- Double-click to bring forgotten words back into review
+- Simple English explanations tuned to the learner's vocabulary level
+- Selection translation for words, phrases, and full sentences
+- UK / US pronunciation with IPA and click-to-play
+- In-tooltip long-sentence analysis with clause blocks, structure hints, translation, and reasoning steps
+- Persistent learning state for known words, review words, and ignored words
+- Inflection-aware mastery: marking `add` as known also covers `adds / added / adding`, while derived forms like `addition / additive` stay separate
+- Built-in learner-language support for:
+  `zh-CN`, `zh-TW`, `ja`, `ko`, `fr`, `de`, `es`, `pt-BR`, `ru`, `it`, `tr`, `vi`, `id`, `th`, `ar`
 
-![LexiGlow workflow from hover lookup to sentence analysis](./assets/lexiglow-workflow.svg)
+![LexiGlow workflow from hover lookup to sentence analysis](./assets/lexiglow-workflow-en.svg)
 
-## 安装使用
+## Install And Run
 
 ```bash
 npm install
@@ -78,36 +70,36 @@ npm run fetch:lexicon
 npm run build
 ```
 
-然后在 Chrome 中加载：
+Then load it in Chrome:
 
-1. 打开 `chrome://extensions`
-2. 开启 `Developer mode`
-3. 点击 `Load unpacked`
-4. 选择项目根目录或 `dist`
+1. Open `chrome://extensions`
+2. Enable `Developer mode`
+3. Click `Load unpacked`
+4. Select the repo root or `dist`
 
-推荐先试这几步：
+Recommended quick check:
 
-1. 打开一个英文网页
-2. 悬停一个黄色单词，确认能看到中文
-3. 双击一个词，确认它会重新进入复习
-4. 选中一个词组或整句，确认会先出现 Google 翻译
-5. 点击 `语境翻译`，确认可看到更贴合上下文的结果，或按配置显示英英解释
-6. 点击 `长难句翻译`，确认会切到分析视图
-7. 打开设置页，确认可以切换 `OpenAI / Compatible`、`Gemini`、`Claude`，并自动带出对应默认 URL 和模型名
+1. Open an English webpage
+2. Hover a highlighted word and confirm the tooltip appears
+3. Double-click a word and confirm it re-enters review
+4. Select a phrase or sentence and confirm the default translation appears first
+5. Click `Context Translate` and confirm you get a more context-aware result, or a simple English explanation depending on your settings
+6. Click `Sentence Analysis` and confirm the panel switches into analysis mode
+7. Open the settings page and confirm you can switch learner language plus `OpenAI / Compatible`, `Gemini`, and `Claude`
 
-已掌握状态会自动归并常见屈折变化，包括复数、三单、过去式、过去分词和现在分词；派生词仍独立判断，因此掌握 `work` 会连带覆盖 `works / worked / working`，但不会自动覆盖 `worker` 或 `workable`。
+Known-word state automatically merges common inflections including plural forms, third-person singular, past tense, past participle, and present participle. Derived forms are still handled independently, so knowing `work` also covers `works / worked / working`, but not automatically `worker` or `workable`.
 
-## 许可证与商用
+## License And Commercial Use
 
-LexiGlow 当前采用源码可见许可，不是 MIT，也不是传统宽松开源许可。
+LexiGlow currently uses a source-available license. It is not MIT and not a traditional permissive open-source license.
 
-- 允许非商业学习、研究、测试、教学使用
-- 商业使用必须先获得作者书面授权
-- 基于本项目的修改、移植、二次开发、换语言重写，只要实质上基于本项目，都必须显著标注来源
+- Non-commercial learning, research, testing, and teaching use is allowed
+- Commercial use requires prior written authorization from the author
+- If you modify, port, adapt, or substantially rewrite this project, you must provide clear attribution to the original source
 
-详细条款见：
+See:
 
 - [LICENSE](./LICENSE)
 - [COMMERCIAL.md](./COMMERCIAL.md)
 
-如果你希望把本项目用于产品、公司项目、收费服务、企业部署或客户交付，请先联系作者获取商业授权。
+If you want to use LexiGlow in a product, company workflow, paid service, enterprise deployment, or client delivery, contact the author first for a commercial license.

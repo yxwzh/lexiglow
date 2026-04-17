@@ -61,9 +61,15 @@ describe("llm response parsing", () => {
 
   test("defaults cache duration settings", () => {
     expect(sanitizeTranslatorSettings({})).toEqual(expect.objectContaining({
+      learnerLanguageCode: "zh-CN",
       cacheDurationValue: 30,
       cacheDurationUnit: "minutes",
     }));
+  });
+
+  test("accepts supported learner languages and falls back for unknown ones", () => {
+    expect(sanitizeTranslatorSettings({ learnerLanguageCode: "ja" }).learnerLanguageCode).toBe("ja");
+    expect(sanitizeTranslatorSettings({ learnerLanguageCode: "xx" as never }).learnerLanguageCode).toBe("zh-CN");
   });
 
   test("computes cache ttl from value and unit", () => {
@@ -97,13 +103,15 @@ describe("llm response parsing", () => {
       llmProvider: "openai",
       providerBaseUrl: "https://api.openai.com/v1/",
       providerModel: "gpt-4.1-mini",
-    }))).toBe("openai::https://api.openai.com/v1::gpt-4.1-mini");
+      learnerLanguageCode: "zh-CN",
+    }))).toBe("openai::https://api.openai.com/v1::gpt-4.1-mini::zh-CN");
 
     expect(getLlmCacheSignature(sanitizeTranslatorSettings({
       llmProvider: "gemini",
       providerBaseUrl: "https://api.openai.com/v1/",
       providerModel: "gpt-4.1-mini",
-    }))).toBe("gemini::https://api.openai.com/v1::gpt-4.1-mini");
+      learnerLanguageCode: "ja",
+    }))).toBe("gemini::https://api.openai.com/v1::gpt-4.1-mini::ja");
   });
 
   test("reads structured english explanation payload", () => {
@@ -199,6 +207,7 @@ describe("llm provider requests", () => {
         providerBaseUrl: "https://api.openai.com/v1",
         providerModel: "gpt-4.1-mini",
         apiKey: "openai-key",
+        learnerLanguageCode: "ja",
       }),
     });
 
@@ -213,6 +222,7 @@ describe("llm provider requests", () => {
     expect(url).toBe("https://api.openai.com/v1/chat/completions");
     expect((request.headers as Record<string, string>).Authorization).toBe("Bearer openai-key");
     expect(payload.model).toBe("gpt-4.1-mini");
+    expect(payload.messages[0]?.content).toContain("Japanese (ja)");
     expect(payload.messages.at(-1)?.content).toContain("selected_text: preserves");
     expect(payload.response_format).toBeUndefined();
   });
@@ -241,6 +251,7 @@ describe("llm provider requests", () => {
         providerBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
         providerModel: "gemini-2.5-flash",
         apiKey: "gemini-key",
+        learnerLanguageCode: "fr",
       }),
     });
 
@@ -254,7 +265,7 @@ describe("llm provider requests", () => {
 
     expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
     expect((request.headers as Record<string, string>)["x-goog-api-key"]).toBe("gemini-key");
-    expect(payload.system_instruction.parts[0]?.text).toContain("Translate the selected English text");
+    expect(payload.system_instruction.parts[0]?.text).toContain("French (fr)");
     expect(payload.contents[0]?.role).toBe("user");
     expect(payload.contents[0]?.parts[0]?.text).toContain("selected_text: preserves");
     expect(payload.generationConfig.responseMimeType).toBe("application/json");
@@ -278,6 +289,7 @@ describe("llm provider requests", () => {
         providerBaseUrl: "https://api.anthropic.com/v1",
         providerModel: "claude-sonnet-4-20250514",
         apiKey: "claude-key",
+        learnerLanguageCode: "de",
       }),
     });
 
@@ -294,7 +306,7 @@ describe("llm provider requests", () => {
     expect((request.headers as Record<string, string>)["x-api-key"]).toBe("claude-key");
     expect((request.headers as Record<string, string>)["anthropic-version"]).toBe("2023-06-01");
     expect(payload.model).toBe("claude-sonnet-4-20250514");
-    expect(payload.system).toContain("Translate the selected English text");
+    expect(payload.system).toContain("German (de)");
     expect(payload.messages[0]?.content).toContain("selected_text: preserves");
     expect(payload.max_tokens).toBe(180);
   });
@@ -332,6 +344,7 @@ describe("sentence analysis parsing", () => {
         providerModel: "test-model",
         apiKey: "test-key",
         fallbackToGoogle: true,
+        learnerLanguageCode: "ko",
         llmDisplayMode: "word",
         cacheDurationValue: 30,
         cacheDurationUnit: "minutes",
@@ -343,6 +356,7 @@ describe("sentence analysis parsing", () => {
       messages: Array<{ role: string; content: string }>;
     };
 
+    expect(payload.messages[0]?.content).toContain("Korean (ko)");
     expect(payload.messages.at(-1)?.content).toBe(`sentence: ${longSentence.trim()}`);
   });
 

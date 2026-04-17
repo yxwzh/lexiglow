@@ -1,5 +1,6 @@
 import "./styles.css";
 
+import { t } from "../shared/i18n";
 import { LEXICON_WORDS, lookupRank, resolveLookupLemma } from "../shared/lexicon";
 import type { RuntimeMessage, TranslatorSettingsResponse } from "../shared/messages";
 import {
@@ -14,11 +15,12 @@ import {
   setWordUnmastered,
   updateKnownBaseRank,
 } from "../shared/settings";
-import { getSettings, saveSettings } from "../shared/storage";
+import { getSettings, getTranslatorSettings, saveSettings } from "../shared/storage";
 import {
   DEFAULT_TRANSLATOR_SETTINGS,
   getDefaultLlmBaseUrl,
   getDefaultLlmModel,
+  LEARNER_LANGUAGE_OPTIONS,
 } from "../shared/translator";
 import type { TranslatorSettings, UserSettings } from "../shared/types";
 
@@ -37,115 +39,71 @@ if (!app) {
   throw new Error("Missing app root");
 }
 
-app.innerHTML = `
-  <main class="page">
-    <section class="hero">
-      <h1>WordWise 设置</h1>
-      <p>设置默认已掌握高频词数量，管理你手工掌握的单词和永不翻译词。页面正文不会被插件改写，翻译只以悬浮层显示。</p>
-    </section>
-    <section class="grid">
-      <section class="panel">
-        <h2>默认已掌握前 N 词</h2>
-        <div class="rank-controls">
-          <div class="rank-header">
-            <span class="muted">当前阈值</span>
-            <strong class="rank-value" id="rankValue">2500</strong>
-          </div>
-          <input id="rankRange" type="range" min="0" max="10000" step="100" value="2500" />
-          <input id="rankNumber" type="number" min="0" max="10000" step="100" value="2500" />
-          <p class="muted">排名小于等于该数值的词默认视为已掌握。你也可以对单词做单独覆盖。</p>
-        </div>
-      </section>
-      <section class="panel">
-        <h2>学习概况</h2>
-        <div class="stats">
-          <div class="stat"><span>当前默认阈值内</span><strong id="baseKnownCount">2500</strong></div>
-          <div class="stat"><span>预计总已掌握</span><strong id="totalKnownCount">2500</strong></div>
-          <div class="stat"><span>额外已掌握</span><strong id="extraKnownCount">0</strong></div>
-          <div class="stat"><span>永不翻译</span><strong id="ignoredCount">0</strong></div>
-        </div>
-        <p class="muted">“额外已掌握”会随着你在网页上点击“已掌握”持续增长。</p>
-      </section>
-    </section>
-    <section class="panel">
-      <h2>搜索和管理词</h2>
-      <input id="searchInput" type="search" placeholder="输入单词，如 running / chatgpt" />
-      <p class="muted">可以把词设为已掌握、未掌握，或加入永不翻译列表。已掌握/未掌握会同时作用于常见词形变化，如 add、adds、added、adding；不包含 addition、additive 这类派生词。</p>
-      <div class="search-results" id="searchResults"></div>
-    </section>
-    <section class="panel">
-      <h2>语境翻译设置</h2>
-      <p class="muted">页面默认先显示 Google 单词翻译；当你手动点语境翻译时，会结合句子语境给出更好的结果。你可以选择只显示单词释义，或额外显示整句翻译 / 英英解释。API Key 只保存在当前浏览器本地，不会进入 GitHub 仓库。</p>
-      <div class="rank-controls">
-        <select id="llmProvider">
-          <option value="openai">OpenAI / Compatible</option>
-          <option value="gemini">Gemini</option>
-          <option value="claude">Claude</option>
-        </select>
-        <input id="providerBaseUrl" type="text" placeholder="Base URL" />
-        <input id="providerModel" type="text" placeholder="Model" />
-        <input id="providerApiKey" type="password" placeholder="API Key（仅本地保存）" />
-        <select id="llmDisplayMode">
-          <option value="word">只显示单词翻译</option>
-          <option value="sentence">显示单词翻译 + 整句翻译</option>
-          <option value="english">显示单词翻译 + 英英解释</option>
-        </select>
-        <div class="cache-settings">
-          <input id="cacheDurationValue" type="number" min="1" step="1" placeholder="缓存时长" />
-          <select id="cacheDurationUnit">
-            <option value="minutes">分钟</option>
-            <option value="hours">小时</option>
-          </select>
-        </div>
-        <p class="muted">翻译、英英解释和发音结果只保存在当前浏览器内存中。超过设定时长或扩展后台被回收后，会重新请求 API。</p>
-        <label class="muted"><input id="fallbackToGoogle" type="checkbox" checked /> 调用失败时自动回退 Google</label>
-        <div class="word-actions">
-          <button class="primary" id="saveTranslatorButton">保存翻译设置</button>
-        </div>
-      </div>
-    </section>
-    <section class="grid">
-      <section class="panel">
-        <h2>手工已掌握</h2>
-        <div class="tag-list" id="masteredList"></div>
-      </section>
-      <section class="panel">
-        <h2>永不翻译</h2>
-        <div class="tag-list" id="ignoredList"></div>
-      </section>
-    </section>
-    <section class="panel">
-      <h2>清理</h2>
-      <p class="muted">清空个人学习进度会保留当前阈值，但移除手工已掌握和永不翻译记录。</p>
-      <button class="danger" id="clearButton">清空个人学习进度</button>
-    </section>
-  </main>
-`;
-
-const rankValue = document.querySelector<HTMLElement>("#rankValue")!;
-const rankRange = document.querySelector<HTMLInputElement>("#rankRange")!;
-const rankNumber = document.querySelector<HTMLInputElement>("#rankNumber")!;
-const baseKnownCount = document.querySelector<HTMLElement>("#baseKnownCount")!;
-const totalKnownCount = document.querySelector<HTMLElement>("#totalKnownCount")!;
-const extraKnownCount = document.querySelector<HTMLElement>("#extraKnownCount")!;
-const ignoredCount = document.querySelector<HTMLElement>("#ignoredCount")!;
-const searchInput = document.querySelector<HTMLInputElement>("#searchInput")!;
-const searchResults = document.querySelector<HTMLElement>("#searchResults")!;
-const llmProvider = document.querySelector<HTMLSelectElement>("#llmProvider")!;
-const providerBaseUrl = document.querySelector<HTMLInputElement>("#providerBaseUrl")!;
-const providerModel = document.querySelector<HTMLInputElement>("#providerModel")!;
-const providerApiKey = document.querySelector<HTMLInputElement>("#providerApiKey")!;
-const llmDisplayMode = document.querySelector<HTMLSelectElement>("#llmDisplayMode")!;
-const cacheDurationValue = document.querySelector<HTMLInputElement>("#cacheDurationValue")!;
-const cacheDurationUnit = document.querySelector<HTMLSelectElement>("#cacheDurationUnit")!;
-const fallbackToGoogle = document.querySelector<HTMLInputElement>("#fallbackToGoogle")!;
-const saveTranslatorButton = document.querySelector<HTMLButtonElement>("#saveTranslatorButton")!;
-const masteredList = document.querySelector<HTMLElement>("#masteredList")!;
-const ignoredList = document.querySelector<HTMLElement>("#ignoredList")!;
-const clearButton = document.querySelector<HTMLButtonElement>("#clearButton")!;
+const appRoot = app;
 
 let settings: UserSettings;
 let translatorSettings: TranslatorSettings = DEFAULT_TRANSLATOR_SETTINGS;
+
+let rankValue!: HTMLElement;
+let rankRange!: HTMLInputElement;
+let rankNumber!: HTMLInputElement;
+let baseKnownCount!: HTMLElement;
+let totalKnownCount!: HTMLElement;
+let extraKnownCount!: HTMLElement;
+let ignoredCount!: HTMLElement;
+let searchInput!: HTMLInputElement;
+let searchResults!: HTMLElement;
+let learnerLanguageCode!: HTMLSelectElement;
+let llmProvider!: HTMLSelectElement;
+let providerBaseUrl!: HTMLInputElement;
+let providerModel!: HTMLInputElement;
+let providerApiKey!: HTMLInputElement;
+let llmDisplayMode!: HTMLSelectElement;
+let cacheDurationValue!: HTMLInputElement;
+let cacheDurationUnit!: HTMLSelectElement;
+let fallbackToGoogle!: HTMLInputElement;
+let saveTranslatorButton!: HTMLButtonElement;
+let masteredList!: HTMLElement;
+let ignoredList!: HTMLElement;
+let clearButton!: HTMLButtonElement;
+
+function ui(key: Parameters<typeof t>[1], variables?: Record<string, string | number>): string {
+  return t(translatorSettings.learnerLanguageCode, key, variables);
+}
+
+function renderLanguageOptionsMarkup(): string {
+  return LEARNER_LANGUAGE_OPTIONS
+    .map((option) => {
+      const selected = option.code === translatorSettings.learnerLanguageCode ? ' selected' : "";
+      return `<option value="${option.code}"${selected}>${option.nativeLabel}</option>`;
+    })
+    .join("");
+}
+
+function assignRefs() {
+  rankValue = document.querySelector<HTMLElement>("#rankValue")!;
+  rankRange = document.querySelector<HTMLInputElement>("#rankRange")!;
+  rankNumber = document.querySelector<HTMLInputElement>("#rankNumber")!;
+  baseKnownCount = document.querySelector<HTMLElement>("#baseKnownCount")!;
+  totalKnownCount = document.querySelector<HTMLElement>("#totalKnownCount")!;
+  extraKnownCount = document.querySelector<HTMLElement>("#extraKnownCount")!;
+  ignoredCount = document.querySelector<HTMLElement>("#ignoredCount")!;
+  searchInput = document.querySelector<HTMLInputElement>("#searchInput")!;
+  searchResults = document.querySelector<HTMLElement>("#searchResults")!;
+  learnerLanguageCode = document.querySelector<HTMLSelectElement>("#learnerLanguageCode")!;
+  llmProvider = document.querySelector<HTMLSelectElement>("#llmProvider")!;
+  providerBaseUrl = document.querySelector<HTMLInputElement>("#providerBaseUrl")!;
+  providerModel = document.querySelector<HTMLInputElement>("#providerModel")!;
+  providerApiKey = document.querySelector<HTMLInputElement>("#providerApiKey")!;
+  llmDisplayMode = document.querySelector<HTMLSelectElement>("#llmDisplayMode")!;
+  cacheDurationValue = document.querySelector<HTMLInputElement>("#cacheDurationValue")!;
+  cacheDurationUnit = document.querySelector<HTMLSelectElement>("#cacheDurationUnit")!;
+  fallbackToGoogle = document.querySelector<HTMLInputElement>("#fallbackToGoogle")!;
+  saveTranslatorButton = document.querySelector<HTMLButtonElement>("#saveTranslatorButton")!;
+  masteredList = document.querySelector<HTMLElement>("#masteredList")!;
+  ignoredList = document.querySelector<HTMLElement>("#ignoredList")!;
+  clearButton = document.querySelector<HTMLButtonElement>("#clearButton")!;
+}
 
 function setRankInputs(value: number) {
   const stringValue = String(value);
@@ -195,21 +153,21 @@ function wordStatusMarkup(lemma: string, rank: number | null): string {
   const labels: string[] = [];
 
   if (flags.isIgnored) {
-    labels.push(`<span class="pill">永不翻译</span>`);
+    labels.push(`<span class="pill">${ui("statusIgnored")}</span>`);
   } else if (flags.isKnown) {
-    labels.push(`<span class="pill">已掌握</span>`);
+    labels.push(`<span class="pill">${ui("statusKnown")}</span>`);
   } else {
-    labels.push(`<span class="pill">待学习</span>`);
+    labels.push(`<span class="pill">${ui("statusReview")}</span>`);
   }
 
   if (rank !== null) {
     labels.push(`<span class="pill">#${rank}</span>`);
   } else {
-    labels.push(`<span class="pill">词表外</span>`);
+    labels.push(`<span class="pill">${ui("statusOutOfList")}</span>`);
   }
 
   if (isBuiltinIgnoredWord(lemma)) {
-    labels.push(`<span class="pill">内置忽略</span>`);
+    labels.push(`<span class="pill">${ui("statusBuiltInIgnore")}</span>`);
   }
 
   return labels.join(" ");
@@ -219,26 +177,24 @@ function renderSearch() {
   const query = searchInput.value.trim();
 
   if (!query) {
-    searchResults.innerHTML = `<p class="muted">输入一个英文单词即可开始管理。</p>`;
+    searchResults.innerHTML = `<p class="muted">${ui("optionsTypeWordToManage")}</p>`;
     return;
   }
 
   const entries = searchLexicon(query);
 
   if (!entries.length) {
-    searchResults.innerHTML = `<p class="muted">没有找到可管理的单词。</p>`;
+    searchResults.innerHTML = `<p class="muted">${ui("optionsNoMatchingWords")}</p>`;
     return;
   }
 
   searchResults.innerHTML = entries
     .map((entry) => {
       const flags = resolveWordFlags(entry.lemma, entry.rank, settings, entry.lemma);
-      const knownActionLabel = flags.isKnown ? "设为未掌握" : "设为已掌握";
-      const knownActionTitle = flags.isKnown
-        ? "会同时取消这个词的常见词形变化状态，如 add、adds、added、adding；不包含 addition、additive 这类派生词。"
-        : "会同时标记这个词的常见词形变化，如 add、adds、added、adding；不包含 addition、additive 这类派生词。";
+      const knownActionLabel = flags.isKnown ? ui("actionMarkUnknown") : ui("actionMarkKnown");
+      const knownActionTitle = flags.isKnown ? ui("actionMarkUnknownTitle") : ui("actionMarkKnownTitle");
       const ignoreActionLabel =
-        flags.isIgnored && !isBuiltinIgnoredWord(entry.lemma) ? "取消忽略" : "永不翻译";
+        flags.isIgnored && !isBuiltinIgnoredWord(entry.lemma) ? ui("actionStopIgnoring") : ui("actionIgnore");
 
       return `
         <div class="word-row" data-lemma="${entry.lemma}" data-rank="${entry.rank ?? ""}">
@@ -266,7 +222,7 @@ function renderSearch() {
 
 function renderMasteredList() {
   if (!settings.masteredOverrides.length) {
-    masteredList.innerHTML = `<p class="muted">还没有手工掌握的单词。</p>`;
+    masteredList.innerHTML = `<p class="muted">${ui("optionsNoManualKnownWords")}</p>`;
     return;
   }
 
@@ -279,7 +235,7 @@ function renderMasteredList() {
             <div>${wordStatusMarkup(lemma, lookupRank(lemma))}</div>
           </div>
           <div class="word-actions">
-            <button class="secondary" data-action="remove-mastered">设为未掌握</button>
+            <button class="secondary" data-action="remove-mastered">${ui("actionMarkUnknown")}</button>
           </div>
         </div>
       `,
@@ -289,7 +245,7 @@ function renderMasteredList() {
 
 function renderIgnoredList() {
   if (!settings.ignoredWords.length) {
-    ignoredList.innerHTML = `<p class="muted">还没有手工忽略的单词。</p>`;
+    ignoredList.innerHTML = `<p class="muted">${ui("optionsNoIgnoredWords")}</p>`;
     return;
   }
 
@@ -302,7 +258,7 @@ function renderIgnoredList() {
             <div>${wordStatusMarkup(lemma, lookupRank(lemma))}</div>
           </div>
           <div class="word-actions">
-            <button class="secondary" data-action="remove-ignored">取消忽略</button>
+            <button class="secondary" data-action="remove-ignored">${ui("actionStopIgnoring")}</button>
           </div>
         </div>
       `,
@@ -315,6 +271,7 @@ function renderAll() {
   totalKnownCount.textContent = String(countTotalKnown(settings));
   extraKnownCount.textContent = String(countExtraMastered(settings));
   ignoredCount.textContent = String(settings.ignoredWords.length);
+  learnerLanguageCode.value = translatorSettings.learnerLanguageCode;
   llmProvider.value = translatorSettings.llmProvider;
   providerBaseUrl.value = translatorSettings.providerBaseUrl;
   providerModel.value = translatorSettings.providerModel;
@@ -334,129 +291,216 @@ async function persistSettings(nextSettings: UserSettings) {
   renderAll();
 }
 
-async function persistTranslatorSettings(nextSettings: TranslatorSettings) {
-  const response = await runtimeSend<TranslatorSettingsResponse>({
-    type: "SAVE_TRANSLATOR_SETTINGS",
-    payload: {
-      settings: nextSettings,
-    },
+function bindEvents() {
+  rankRange.addEventListener("input", async () => {
+    await persistSettings(updateKnownBaseRank(settings, Number(rankRange.value)));
   });
 
-  if (response.ok && response.settings) {
-    translatorSettings = response.settings;
-    renderAll();
-  }
-}
+  rankNumber.addEventListener("change", async () => {
+    await persistSettings(updateKnownBaseRank(settings, Number(rankNumber.value)));
+  });
 
-rankRange.addEventListener("input", async () => {
-  const value = Number(rankRange.value);
-  await persistSettings(updateKnownBaseRank(settings, value));
-});
+  searchInput.addEventListener("input", () => {
+    renderSearch();
+  });
 
-rankNumber.addEventListener("change", async () => {
-  const value = Number(rankNumber.value);
-  await persistSettings(updateKnownBaseRank(settings, value));
-});
+  searchResults.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement | null;
+    const action = target?.dataset.action;
+    const row = target?.closest<HTMLElement>("[data-lemma]");
 
-searchInput.addEventListener("input", () => {
-  renderSearch();
-});
+    if (!action || !row) {
+      return;
+    }
 
-searchResults.addEventListener("click", async (event) => {
-  const target = event.target as HTMLElement | null;
-  const action = target?.dataset.action;
-  const row = target?.closest<HTMLElement>("[data-lemma]");
+    const lemma = row.dataset.lemma ?? "";
+    const rankRaw = row.dataset.rank ?? "";
+    const rank = rankRaw ? Number(rankRaw) : null;
+    const flags = resolveWordFlags(lemma, rank, settings, lemma);
 
-  if (!action || !row) {
-    return;
-  }
+    if (action === "toggle-known") {
+      const next = flags.isKnown
+        ? setWordUnmastered(settings, lemma, rank)
+        : setWordMastered(settings, lemma);
+      await persistSettings(next);
+      return;
+    }
 
-  const lemma = row.dataset.lemma ?? "";
-  const rankRaw = row.dataset.rank ?? "";
-  const rank = rankRaw ? Number(rankRaw) : null;
-  const flags = resolveWordFlags(lemma, rank, settings, lemma);
+    if (action === "toggle-ignored" && !isBuiltinIgnoredWord(lemma)) {
+      const next = flags.isIgnored ? removeWordIgnored(settings, lemma) : setWordIgnored(settings, lemma);
+      await persistSettings(next);
+    }
+  });
 
-  if (action === "toggle-known") {
-    const next = flags.isKnown
-      ? setWordUnmastered(settings, lemma, rank)
-      : setWordMastered(settings, lemma);
-    await persistSettings(next);
-    return;
-  }
+  masteredList.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.dataset.action !== "remove-mastered") {
+      return;
+    }
 
-  if (action === "toggle-ignored" && !isBuiltinIgnoredWord(lemma)) {
-    const next = flags.isIgnored ? removeWordIgnored(settings, lemma) : setWordIgnored(settings, lemma);
-    await persistSettings(next);
-  }
-});
+    const row = target.closest<HTMLElement>("[data-mastered]");
+    const lemma = row?.dataset.mastered ?? "";
+    await persistSettings(setWordUnmastered(settings, lemma, lookupRank(lemma)));
+  });
 
-masteredList.addEventListener("click", async (event) => {
-  const target = event.target as HTMLElement | null;
-  if (target?.dataset.action !== "remove-mastered") {
-    return;
-  }
+  ignoredList.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.dataset.action !== "remove-ignored") {
+      return;
+    }
 
-  const row = target.closest<HTMLElement>("[data-mastered]");
-  const lemma = row?.dataset.mastered ?? "";
-  const rank = lookupRank(lemma);
-  await persistSettings(setWordUnmastered(settings, lemma, rank));
-});
+    const row = target.closest<HTMLElement>("[data-ignored]");
+    const lemma = row?.dataset.ignored ?? "";
+    await persistSettings(removeWordIgnored(settings, lemma));
+  });
 
-ignoredList.addEventListener("click", async (event) => {
-  const target = event.target as HTMLElement | null;
-  if (target?.dataset.action !== "remove-ignored") {
-    return;
-  }
+  clearButton.addEventListener("click", async () => {
+    await persistSettings(clearLearningProgress(settings));
+  });
 
-  const row = target.closest<HTMLElement>("[data-ignored]");
-  const lemma = row?.dataset.ignored ?? "";
-  await persistSettings(removeWordIgnored(settings, lemma));
-});
+  saveTranslatorButton.addEventListener("click", async () => {
+    const response = await runtimeSend<TranslatorSettingsResponse>({
+      type: "SAVE_TRANSLATOR_SETTINGS",
+      payload: {
+        settings: {
+          llmProvider:
+            llmProvider.value === "gemini"
+              ? "gemini"
+              : llmProvider.value === "claude"
+                ? "claude"
+                : "openai",
+          learnerLanguageCode: learnerLanguageCode.value as TranslatorSettings["learnerLanguageCode"],
+          providerBaseUrl: providerBaseUrl.value,
+          providerModel: providerModel.value,
+          apiKey: providerApiKey.value,
+          llmDisplayMode:
+            llmDisplayMode.value === "sentence"
+              ? "sentence"
+              : llmDisplayMode.value === "english"
+                ? "english"
+                : "word",
+          cacheDurationValue: Number(cacheDurationValue.value),
+          cacheDurationUnit: cacheDurationUnit.value === "hours" ? "hours" : "minutes",
+          fallbackToGoogle: fallbackToGoogle.checked,
+        },
+      },
+    });
 
-clearButton.addEventListener("click", async () => {
-  await persistSettings(clearLearningProgress(settings));
-});
+    if (response.ok && response.settings) {
+      translatorSettings = response.settings;
+      renderShell();
+      renderAll();
+    }
+  });
 
-saveTranslatorButton.addEventListener("click", async () => {
-  await persistTranslatorSettings({
-    llmProvider:
+  llmProvider.addEventListener("change", () => {
+    const provider =
       llmProvider.value === "gemini"
         ? "gemini"
         : llmProvider.value === "claude"
           ? "claude"
-          : "openai",
-    providerBaseUrl: providerBaseUrl.value,
-    providerModel: providerModel.value,
-    apiKey: providerApiKey.value,
-    llmDisplayMode:
-      llmDisplayMode.value === "sentence"
-        ? "sentence"
-        : llmDisplayMode.value === "english"
-          ? "english"
-          : "word",
-    cacheDurationValue: Number(cacheDurationValue.value),
-    cacheDurationUnit: cacheDurationUnit.value === "hours" ? "hours" : "minutes",
-    fallbackToGoogle: fallbackToGoogle.checked,
+          : "openai";
+    providerBaseUrl.value = getDefaultLlmBaseUrl(provider);
+    providerModel.value = getDefaultLlmModel(provider);
   });
-});
+}
 
-llmProvider.addEventListener("change", () => {
-  const provider =
-    llmProvider.value === "gemini"
-      ? "gemini"
-      : llmProvider.value === "claude"
-        ? "claude"
-        : "openai";
-  providerBaseUrl.value = getDefaultLlmBaseUrl(provider);
-  providerModel.value = getDefaultLlmModel(provider);
-});
+function renderShell() {
+  appRoot.innerHTML = `
+    <main class="page">
+      <section class="hero">
+        <h1>${ui("optionsTitle")}</h1>
+        <p>${ui("optionsHeroDescription")}</p>
+      </section>
+      <section class="grid">
+        <section class="panel">
+          <h2>${ui("optionsDefaultKnownTopN")}</h2>
+          <div class="rank-controls">
+            <div class="rank-header">
+              <span class="muted">${ui("optionsCurrentThreshold")}</span>
+              <strong class="rank-value" id="rankValue">2500</strong>
+            </div>
+            <input id="rankRange" type="range" min="0" max="10000" step="100" value="2500" />
+            <input id="rankNumber" type="number" min="0" max="10000" step="100" value="2500" />
+            <p class="muted">${ui("optionsThresholdDescription")}</p>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>${ui("optionsLearningOverview")}</h2>
+          <div class="stats">
+            <div class="stat"><span>${ui("labelInsideDefaultThreshold")}</span><strong id="baseKnownCount">2500</strong></div>
+            <div class="stat"><span>${ui("labelEstimatedTotalKnown")}</span><strong id="totalKnownCount">2500</strong></div>
+            <div class="stat"><span>${ui("labelExtraKnown")}</span><strong id="extraKnownCount">0</strong></div>
+            <div class="stat"><span>${ui("labelIgnoredWords")}</span><strong id="ignoredCount">0</strong></div>
+          </div>
+          <p class="muted">${ui("optionsExtraKnownDescription")}</p>
+        </section>
+      </section>
+      <section class="panel">
+        <h2>${ui("optionsSearchManageWords")}</h2>
+        <input id="searchInput" type="search" placeholder="${ui("optionsSearchPlaceholder")}" />
+        <p class="muted">${ui("optionsSearchDescription")}</p>
+        <div class="search-results" id="searchResults"></div>
+      </section>
+      <section class="panel">
+        <h2>${ui("optionsTranslationSettings")}</h2>
+        <p class="muted">${ui("optionsTranslationDescription")}</p>
+        <div class="rank-controls">
+          <label class="muted" for="learnerLanguageCode">${ui("optionsLearnerLanguage")}</label>
+          <select id="learnerLanguageCode">${renderLanguageOptionsMarkup()}</select>
+          <select id="llmProvider">
+            <option value="openai">OpenAI / Compatible</option>
+            <option value="gemini">Gemini</option>
+            <option value="claude">Claude</option>
+          </select>
+          <input id="providerBaseUrl" type="text" placeholder="Base URL" />
+          <input id="providerModel" type="text" placeholder="Model" />
+          <input id="providerApiKey" type="password" placeholder="${ui("optionsApiKeyPlaceholder")}" />
+          <select id="llmDisplayMode">
+            <option value="word">${ui("optionsDisplayModeWord")}</option>
+            <option value="sentence">${ui("optionsDisplayModeSentence")}</option>
+            <option value="english">${ui("optionsDisplayModeEnglish")}</option>
+          </select>
+          <div class="cache-settings">
+            <input id="cacheDurationValue" type="number" min="1" step="1" placeholder="${ui("optionsCacheDurationPlaceholder")}" />
+            <select id="cacheDurationUnit">
+              <option value="minutes">${ui("unitMinutes")}</option>
+              <option value="hours">${ui("unitHours")}</option>
+            </select>
+          </div>
+          <p class="muted">${ui("optionsCacheDescription")}</p>
+          <label class="muted"><input id="fallbackToGoogle" type="checkbox" checked /> ${ui("optionsFallbackToGoogle")}</label>
+          <div class="word-actions">
+            <button class="primary" id="saveTranslatorButton">${ui("optionsSaveTranslationSettings")}</button>
+          </div>
+        </div>
+      </section>
+      <section class="grid">
+        <section class="panel">
+          <h2>${ui("optionsManualKnownWords")}</h2>
+          <div class="tag-list" id="masteredList"></div>
+        </section>
+        <section class="panel">
+          <h2>${ui("optionsIgnoredWordsHeading")}</h2>
+          <div class="tag-list" id="ignoredList"></div>
+        </section>
+      </section>
+      <section class="panel">
+        <h2>${ui("optionsReset")}</h2>
+        <p class="muted">${ui("optionsResetDescription")}</p>
+        <button class="danger" id="clearButton">${ui("optionsResetButton")}</button>
+      </section>
+    </main>
+  `;
+
+  assignRefs();
+  bindEvents();
+}
 
 async function boot() {
   settings = await getSettings();
-  const translatorResponse = await runtimeSend<TranslatorSettingsResponse>({
-    type: "GET_TRANSLATOR_SETTINGS",
-  });
-  translatorSettings = translatorResponse.settings ?? DEFAULT_TRANSLATOR_SETTINGS;
+  translatorSettings = await getTranslatorSettings();
+  renderShell();
   renderAll();
 }
 

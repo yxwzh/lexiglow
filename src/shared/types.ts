@@ -5,12 +5,30 @@ export interface UserSettings {
   ignoredWords: string[];
 }
 
+export type SupportedLearnerLanguageCode =
+  | "zh-CN"
+  | "zh-TW"
+  | "ja"
+  | "ko"
+  | "fr"
+  | "de"
+  | "es"
+  | "pt-BR"
+  | "ru"
+  | "it"
+  | "tr"
+  | "vi"
+  | "id"
+  | "th"
+  | "ar";
+
 export interface TranslatorSettings {
   llmProvider: "openai" | "gemini" | "claude";
   providerBaseUrl: string;
   providerModel: string;
   apiKey: string;
   fallbackToGoogle: boolean;
+  learnerLanguageCode: SupportedLearnerLanguageCode;
   llmDisplayMode: "word" | "sentence" | "english";
   cacheDurationValue: number;
   cacheDurationUnit: "minutes" | "hours";

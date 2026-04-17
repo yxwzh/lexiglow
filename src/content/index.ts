@@ -1,3 +1,5 @@
+import { STORAGE_TRANSLATOR_SETTINGS_KEY } from "../shared/constants";
+import { t } from "../shared/i18n";
 import { lookupRank, resolveLookupLemma } from "../shared/lexicon";
 import {
   getDisplayClauseBlocks,
@@ -13,7 +15,7 @@ import type {
   TranslationProviderChoice,
 } from "../shared/messages";
 import { DEFAULT_SETTINGS, resolveWordFlags } from "../shared/settings";
-import { getSettings } from "../shared/storage";
+import { getSettings, getTranslatorSettings } from "../shared/storage";
 import {
   createEnglishTokenMatcher,
   extractWordAtOffset,
@@ -27,6 +29,7 @@ import type {
   PronunciationAccent,
   PronunciationResult,
   SentenceAnalysisResult,
+  SupportedLearnerLanguageCode,
   UserSettings,
 } from "../shared/types";
 
@@ -34,6 +37,11 @@ const HOVER_DELAY_MS = 320;
 const HIDE_DELAY_MS = 1200;
 const HIGHLIGHT_NAME = "wordwise-pending";
 const HIGHLIGHT_SCAN_LIMIT = 1200;
+let currentLearnerLanguageCode: SupportedLearnerLanguageCode = "zh-CN";
+
+function ui(key: Parameters<typeof t>[1], variables?: Record<string, string | number>): string {
+  return t(currentLearnerLanguageCode, key, variables);
+}
 
 const TOOLTIP_STYLE = `
   :host {
@@ -1418,12 +1426,36 @@ function isAnalyzableSelectionText(text: string): boolean {
 }
 
 const HIGHLIGHT_CATEGORY_META = {
-  subject: { label: "主语", className: "wordwise-mark--subject", pillClassName: "wordwise-pill--subject" },
-  predicate: { label: "谓语", className: "wordwise-mark--predicate", pillClassName: "wordwise-pill--predicate" },
-  nonfinite: { label: "非谓语", className: "wordwise-mark--nonfinite", pillClassName: "wordwise-pill--nonfinite" },
-  conjunction: { label: "连词", className: "wordwise-mark--conjunction", pillClassName: "wordwise-pill--conjunction" },
-  relative: { label: "关系词", className: "wordwise-mark--relative", pillClassName: "wordwise-pill--relative" },
-  preposition: { label: "介词", className: "wordwise-mark--preposition", pillClassName: "wordwise-pill--preposition" },
+  subject: {
+    labelKey: "highlightSubject",
+    className: "wordwise-mark--subject",
+    pillClassName: "wordwise-pill--subject",
+  },
+  predicate: {
+    labelKey: "highlightPredicate",
+    className: "wordwise-mark--predicate",
+    pillClassName: "wordwise-pill--predicate",
+  },
+  nonfinite: {
+    labelKey: "highlightNonfinite",
+    className: "wordwise-mark--nonfinite",
+    pillClassName: "wordwise-pill--nonfinite",
+  },
+  conjunction: {
+    labelKey: "highlightConjunction",
+    className: "wordwise-mark--conjunction",
+    pillClassName: "wordwise-pill--conjunction",
+  },
+  relative: {
+    labelKey: "highlightRelative",
+    className: "wordwise-mark--relative",
+    pillClassName: "wordwise-pill--relative",
+  },
+  preposition: {
+    labelKey: "highlightPreposition",
+    className: "wordwise-mark--preposition",
+    pillClassName: "wordwise-pill--preposition",
+  },
 } as const;
 
 const CONNECTOR_WORDS = new Set([
@@ -1634,7 +1666,12 @@ function renderClauseBlockContent(
     .join("");
 }
 
-const ANALYSIS_STEP_LABELS = ["切层次", "抓主干", "理枝叶", "顺译序"] as const;
+const ANALYSIS_STEP_LABEL_KEYS = [
+  "analysisStepSegmentation",
+  "analysisStepBackbone",
+  "analysisStepBranches",
+  "analysisStepTranslationOrder",
+] as const;
 const ANALYSIS_STEP_TONE_CLASSES = [
   "wordwise-analysis-step-card--tone-0",
   "wordwise-analysis-step-card--tone-1",
@@ -1772,7 +1809,9 @@ function renderAnalysisStepsMarkup(steps: string[]): string {
       const toneClass =
         ANALYSIS_STEP_TONE_CLASSES[index] ??
         ANALYSIS_STEP_TONE_CLASSES[ANALYSIS_STEP_TONE_CLASSES.length - 1];
-      const label = ANALYSIS_STEP_LABELS[index] ?? `补充说明 ${index + 1}`;
+      const label = ANALYSIS_STEP_LABEL_KEYS[index]
+        ? ui(ANALYSIS_STEP_LABEL_KEYS[index])
+        : ui("analysisStepFallback", { index: index + 1 });
       const stepNumber = String(index + 1).padStart(2, "0");
       const bodyMarkup = buildAnalysisStepContentMarkup(step);
 
@@ -1807,7 +1846,7 @@ function renderLegendMarkup(result: SentenceAnalysisResult, sentence: string): s
   return categories
     .map((category) => {
       const meta = HIGHLIGHT_CATEGORY_META[category];
-      return `<span class="wordwise-analysis-pill ${meta.pillClassName}">${meta.label}</span>`;
+      return `<span class="wordwise-analysis-pill ${meta.pillClassName}">${ui(meta.labelKey)}</span>`;
     })
     .join("");
 }
@@ -1907,7 +1946,7 @@ function createTooltipRoot() {
   closeButton.className = "wordwise-close";
   closeButton.type = "button";
   closeButton.dataset.visible = "false";
-  closeButton.setAttribute("aria-label", "关闭");
+  closeButton.setAttribute("aria-label", ui("tooltipClose"));
   closeButton.textContent = "×";
 
   const surfaceHeaderEl = document.createElement("div");
@@ -1935,7 +1974,7 @@ function createTooltipRoot() {
   hintEl.dataset.visible = "true";
   hintEl.dataset.loading = "false";
   hintEl.dataset.kind = "prompt";
-  hintEl.textContent = "可切换到语境翻译。";
+  hintEl.textContent = ui("tooltipSwitchToContextualTranslation");
 
   const actionsEl = document.createElement("div");
   actionsEl.className = "wordwise-actions";
@@ -1945,7 +1984,7 @@ function createTooltipRoot() {
 
   const llmButton = document.createElement("button");
   llmButton.className = "wordwise-button wordwise-button--secondary";
-  llmButton.textContent = "语境翻译";
+  llmButton.textContent = ui("tooltipContextTranslate");
 
   const britishChip = document.createElement("div");
   britishChip.className = "wordwise-pronunciation-chip";
@@ -1953,14 +1992,14 @@ function createTooltipRoot() {
   britishText.className = "wordwise-pronunciation-text";
   const britishLabel = document.createElement("span");
   britishLabel.className = "wordwise-pronunciation-label";
-  britishLabel.textContent = "英音";
+  britishLabel.textContent = ui("tooltipUk");
   const britishPhoneticEl = document.createElement("span");
   britishPhoneticEl.className = "wordwise-pronunciation-ipa";
   britishPhoneticEl.textContent = "/.../";
   const britishButton = document.createElement("button");
   britishButton.className = "wordwise-pronunciation-action";
   britishButton.type = "button";
-  britishButton.setAttribute("aria-label", "播放英式发音");
+  britishButton.setAttribute("aria-label", ui("tooltipPlayUkPronunciation"));
   britishButton.innerHTML = SPEAKER_ICON;
   britishText.append(britishLabel, britishPhoneticEl);
   britishChip.append(britishText, britishButton);
@@ -1971,14 +2010,14 @@ function createTooltipRoot() {
   americanText.className = "wordwise-pronunciation-text";
   const americanLabel = document.createElement("span");
   americanLabel.className = "wordwise-pronunciation-label";
-  americanLabel.textContent = "美音";
+  americanLabel.textContent = ui("tooltipUs");
   const americanPhoneticEl = document.createElement("span");
   americanPhoneticEl.className = "wordwise-pronunciation-ipa";
   americanPhoneticEl.textContent = "/.../";
   const americanButton = document.createElement("button");
   americanButton.className = "wordwise-pronunciation-action";
   americanButton.type = "button";
-  americanButton.setAttribute("aria-label", "播放美式发音");
+  americanButton.setAttribute("aria-label", ui("tooltipPlayUsPronunciation"));
   americanButton.innerHTML = SPEAKER_ICON;
   americanText.append(americanLabel, americanPhoneticEl);
   americanChip.append(americanText, americanButton);
@@ -1986,11 +2025,11 @@ function createTooltipRoot() {
 
   const selectionAnalysisButton = document.createElement("button");
   selectionAnalysisButton.className = "wordwise-button wordwise-button--secondary";
-  selectionAnalysisButton.textContent = "长难句翻译";
+  selectionAnalysisButton.textContent = ui("tooltipSentenceAnalysis");
 
   const ignoreButton = document.createElement("button");
   ignoreButton.className = "wordwise-button wordwise-button--secondary";
-  ignoreButton.textContent = "永不翻译";
+  ignoreButton.textContent = ui("tooltipIgnore");
 
   const metaEl = document.createElement("div");
   metaEl.className = "wordwise-meta";
@@ -2006,9 +2045,8 @@ function createTooltipRoot() {
 
   const button = document.createElement("button");
   button.className = "wordwise-button";
-  button.textContent = "已掌握";
-  button.title =
-    "会同时标记常见词形变化，如 add、adds、added、adding；不包含 addition、additive 这类派生词。";
+  button.textContent = ui("tooltipKnown");
+  button.title = ui("tooltipKnownTitle");
 
   const primaryTranslationEl = document.createElement("div");
   primaryTranslationEl.className = "wordwise-primary-translation";
@@ -2028,7 +2066,7 @@ function createTooltipRoot() {
   englishExplanationEl.dataset.visible = "false";
   const englishExplanationLabelEl = document.createElement("div");
   englishExplanationLabelEl.className = "wordwise-english-explanation-label";
-  englishExplanationLabelEl.textContent = "英英解释";
+  englishExplanationLabelEl.textContent = ui("tooltipEnglishExplanation");
   const englishExplanationTextEl = document.createElement("div");
   englishExplanationTextEl.className = "wordwise-english-explanation-text";
   englishExplanationEl.append(englishExplanationLabelEl, englishExplanationTextEl);
@@ -2048,11 +2086,11 @@ function createTooltipRoot() {
 
   const analysisTitleEl = document.createElement("div");
   analysisTitleEl.className = "wordwise-analysis-title";
-  analysisTitleEl.textContent = "长难句分析";
+  analysisTitleEl.textContent = ui("tooltipSentenceAnalysis");
 
   const analysisTriggerButton = document.createElement("button");
   analysisTriggerButton.className = "wordwise-button";
-  analysisTriggerButton.textContent = "开始分析";
+  analysisTriggerButton.textContent = ui("tooltipStartAnalysis");
 
   const analysisStatusEl = document.createElement("div");
   analysisStatusEl.className = "wordwise-analysis-status";
@@ -2061,23 +2099,35 @@ function createTooltipRoot() {
   const analysisLoadingEl = document.createElement("div");
   analysisLoadingEl.className = "wordwise-analysis-loading";
   analysisLoadingEl.dataset.visible = "false";
-  analysisLoadingEl.innerHTML = `
-    <div class="wordwise-analysis-loading-orbit" aria-hidden="true">
-      <span class="wordwise-analysis-loading-dot"></span>
-      <span class="wordwise-analysis-loading-dot"></span>
-      <span class="wordwise-analysis-loading-dot"></span>
-      <span class="wordwise-analysis-loading-dot"></span>
-    </div>
-    <div class="wordwise-analysis-loading-title">正在翻译长难句</div>
-    <div class="wordwise-analysis-loading-caption">正在整理句子结构、译序和核心意思，请稍等。</div>
-    <div class="wordwise-analysis-loading-line" aria-hidden="true"></div>
-  `;
+  const analysisLoadingOrbitEl = document.createElement("div");
+  analysisLoadingOrbitEl.className = "wordwise-analysis-loading-orbit";
+  analysisLoadingOrbitEl.setAttribute("aria-hidden", "true");
+  for (let index = 0; index < 4; index += 1) {
+    const dotEl = document.createElement("span");
+    dotEl.className = "wordwise-analysis-loading-dot";
+    analysisLoadingOrbitEl.append(dotEl);
+  }
+  const analysisLoadingTitleEl = document.createElement("div");
+  analysisLoadingTitleEl.className = "wordwise-analysis-loading-title";
+  analysisLoadingTitleEl.textContent = ui("tooltipAnalyzingSentence");
+  const analysisLoadingCaptionEl = document.createElement("div");
+  analysisLoadingCaptionEl.className = "wordwise-analysis-loading-caption";
+  analysisLoadingCaptionEl.textContent = ui("tooltipAnalyzingSentenceCaption");
+  const analysisLoadingLineEl = document.createElement("div");
+  analysisLoadingLineEl.className = "wordwise-analysis-loading-line";
+  analysisLoadingLineEl.setAttribute("aria-hidden", "true");
+  analysisLoadingEl.append(
+    analysisLoadingOrbitEl,
+    analysisLoadingTitleEl,
+    analysisLoadingCaptionEl,
+    analysisLoadingLineEl,
+  );
 
   const analysisSourceSection = document.createElement("section");
   analysisSourceSection.className = "wordwise-analysis-section";
   const analysisSourceLabel = document.createElement("div");
   analysisSourceLabel.className = "wordwise-analysis-label";
-  analysisSourceLabel.textContent = "原句拆解";
+  analysisSourceLabel.textContent = ui("tooltipSentenceBreakdown");
   const analysisSourceCardRow = document.createElement("div");
   analysisSourceCardRow.className = "wordwise-analysis-card-row";
   const analysisSourceCardSpacer = document.createElement("div");
@@ -2096,7 +2146,7 @@ function createTooltipRoot() {
   analysisStructureSection.className = "wordwise-analysis-section";
   const analysisStructureLabel = document.createElement("div");
   analysisStructureLabel.className = "wordwise-analysis-label";
-  analysisStructureLabel.textContent = "主干结构";
+  analysisStructureLabel.textContent = ui("tooltipBackbone");
   const analysisStructureCardRow = document.createElement("div");
   analysisStructureCardRow.className = "wordwise-analysis-card-row";
   const analysisStructureCardSpacer = document.createElement("div");
@@ -2113,7 +2163,7 @@ function createTooltipRoot() {
   analysisStepsSection.className = "wordwise-analysis-section wordwise-analysis-section--steps";
   const analysisStepsLabel = document.createElement("div");
   analysisStepsLabel.className = "wordwise-analysis-label";
-  analysisStepsLabel.textContent = "分析过程";
+  analysisStepsLabel.textContent = ui("tooltipAnalysisSteps");
   const analysisStepsEl = document.createElement("ol");
   analysisStepsEl.className = "wordwise-analysis-steps";
   analysisStepsSection.append(analysisStepsLabel, analysisStepsEl);
@@ -2122,7 +2172,7 @@ function createTooltipRoot() {
   analysisTranslationSection.className = "wordwise-analysis-section";
   const analysisTranslationLabel = document.createElement("div");
   analysisTranslationLabel.className = "wordwise-analysis-label";
-  analysisTranslationLabel.textContent = "翻译";
+  analysisTranslationLabel.textContent = ui("tooltipTranslation");
   const analysisTranslationCardRow = document.createElement("div");
   analysisTranslationCardRow.className = "wordwise-analysis-card-row";
   const analysisTranslationCardSpacer = document.createElement("div");
@@ -2168,7 +2218,9 @@ function createTooltipRoot() {
     surfaceEl,
     surfacePosEl,
     pronunciationEl,
+    britishLabel,
     britishPhoneticEl,
+    americanLabel,
     americanPhoneticEl,
     hintEl,
     translationEl,
@@ -2177,6 +2229,7 @@ function createTooltipRoot() {
     primaryTranslationPosEl,
     secondaryTranslationEl,
     englishExplanationEl,
+    englishExplanationLabelEl,
     englishExplanationTextEl,
     rankEl,
     metaEl,
@@ -2192,10 +2245,16 @@ function createTooltipRoot() {
     analysisTriggerButton,
     analysisStatusEl,
     analysisLoadingEl,
+    analysisLoadingTitleEl,
+    analysisLoadingCaptionEl,
+    analysisSourceLabel,
     analysisSourceEl,
     analysisLegendEl,
+    analysisStructureLabel,
     analysisTranslationEl,
+    analysisTranslationLabel,
     analysisStructureEl,
+    analysisStepsLabel,
     analysisStepsEl,
   };
 }
@@ -2382,10 +2441,10 @@ function isIgnoredContainer(node: Node): boolean {
 
 function rankLabel(result: LexiconLookupResult): string {
   if (result.rank === null) {
-    return "词表外";
+    return ui("statusOutOfList");
   }
 
-  return `词频 #${result.rank}`;
+  return ui("tooltipRankLabel", { rank: result.rank });
 }
 
 function showWordMetaStatus(text: string) {
@@ -2450,6 +2509,42 @@ function isVisibleRect(rect: DOMRect): boolean {
 
 const tooltip = createTooltipRoot();
 installHighlightStyle();
+
+function applyTooltipLocale() {
+  tooltip.closeButton.setAttribute("aria-label", ui("tooltipClose"));
+  tooltip.llmButton.textContent = ui("tooltipContextTranslate");
+  tooltip.britishLabel.textContent = ui("tooltipUk");
+  tooltip.britishButton.setAttribute("aria-label", ui("tooltipPlayUkPronunciation"));
+  tooltip.americanLabel.textContent = ui("tooltipUs");
+  tooltip.americanButton.setAttribute("aria-label", ui("tooltipPlayUsPronunciation"));
+  tooltip.selectionAnalysisButton.textContent = ui("tooltipSentenceAnalysis");
+  tooltip.ignoreButton.textContent = ui("tooltipIgnore");
+  tooltip.button.textContent = ui("tooltipKnown");
+  tooltip.button.title = ui("tooltipKnownTitle");
+  tooltip.englishExplanationLabelEl.textContent = ui("tooltipEnglishExplanation");
+  tooltip.analysisTitleEl.textContent = ui("tooltipSentenceAnalysis");
+  tooltip.analysisTriggerButton.textContent = ui("tooltipStartAnalysis");
+  tooltip.analysisLoadingTitleEl.textContent = ui("tooltipAnalyzingSentence");
+  tooltip.analysisLoadingCaptionEl.textContent = ui("tooltipAnalyzingSentenceCaption");
+  tooltip.analysisSourceLabel.textContent = ui("tooltipSentenceBreakdown");
+  tooltip.analysisTranslationLabel.textContent = ui("tooltipTranslation");
+  tooltip.analysisStructureLabel.textContent = ui("tooltipBackbone");
+  tooltip.analysisStepsLabel.textContent = ui("tooltipAnalysisSteps");
+
+  if (tooltip.hintEl.dataset.kind === "prompt") {
+    tooltip.hintEl.textContent = ui("tooltipSwitchToContextualTranslation");
+  }
+}
+
+async function refreshLearnerLanguage() {
+  try {
+    currentLearnerLanguageCode = (await getTranslatorSettings()).learnerLanguageCode;
+  } catch {
+    currentLearnerLanguageCode = "zh-CN";
+  }
+
+  applyTooltipLocale();
+}
 
 let hoverTimer: number | null = null;
 let hideTimer: number | null = null;
@@ -2824,8 +2919,8 @@ function renderSelectionTooltip(
   tooltip.hintEl.dataset.loading = "false";
   tooltip.hintEl.dataset.kind = "status";
   tooltip.hintEl.textContent = isLlmTranslationProvider(result?.translationProvider)
-    ? "已使用语境翻译。"
-    : "默认 Google 结果。";
+    ? ui("tooltipContextualTranslationUsed")
+    : ui("tooltipDefaultGoogleResult");
   tooltip.rankEl.dataset.kind = "rank";
   tooltip.rankEl.dataset.rankLabel = "";
   tooltip.rankEl.textContent = "";
@@ -2849,9 +2944,9 @@ function showSentenceAnalysisButton(context: SentenceSelectionContext) {
   tooltip.wordView.dataset.visible = "false";
   tooltip.analysisView.dataset.visible = "true";
   tooltip.closeButton.dataset.visible = "true";
-  tooltip.analysisTitleEl.textContent = "长难句分析";
+  tooltip.analysisTitleEl.textContent = ui("tooltipSentenceAnalysis");
   tooltip.analysisTriggerButton.style.display = "inline-flex";
-  tooltip.analysisTriggerButton.textContent = "开始分析";
+  tooltip.analysisTriggerButton.textContent = ui("tooltipStartAnalysis");
   tooltip.analysisStatusEl.dataset.loading = "false";
   tooltip.analysisStatusEl.textContent = "";
   tooltip.analysisLoadingEl.dataset.visible = "false";
@@ -2942,7 +3037,7 @@ function renderTooltip(result: LexiconLookupResult, rect: DOMRect) {
   tooltip.hintEl.dataset.loading = "false";
   if (!result.translation) {
     tooltip.hintEl.dataset.kind = "prompt";
-    tooltip.hintEl.textContent = "可切换到语境翻译。";
+    tooltip.hintEl.textContent = ui("tooltipSwitchToContextualTranslation");
     tooltip.secondaryTranslationEl.dataset.visible = "false";
   }
   tooltip.rankEl.dataset.kind = "rank";
@@ -2968,7 +3063,7 @@ function renderSentenceAnalysisPanel(
   tooltip.wordView.dataset.visible = "false";
   tooltip.analysisView.dataset.visible = "true";
   tooltip.closeButton.dataset.visible = "true";
-  tooltip.analysisTitleEl.textContent = "长难句分析";
+  tooltip.analysisTitleEl.textContent = ui("tooltipSentenceAnalysis");
   tooltip.analysisTriggerButton.style.display = "none";
   tooltip.analysisStatusEl.textContent = "";
   tooltip.analysisStatusEl.dataset.loading = "false";
@@ -3172,7 +3267,7 @@ async function requestTranslation(provider: TranslationProviderChoice) {
     tooltip.secondaryTranslationEl.dataset.visible = "false";
     resetEnglishExplanationDisplay();
   }
-  showWordMetaStatus(provider === "llm" ? "语境翻译中..." : "Google 翻译中...");
+  showWordMetaStatus(provider === "llm" ? ui("tooltipContextTranslating") : ui("tooltipGoogleTranslating"));
 
   let response: LookupWordResponse;
 
@@ -3202,7 +3297,7 @@ async function requestTranslation(provider: TranslationProviderChoice) {
       tooltip.hintEl.dataset.visible = "true";
       tooltip.hintEl.dataset.loading = "false";
       tooltip.hintEl.dataset.kind = "status";
-      tooltip.hintEl.textContent = "翻译暂不可用。";
+      tooltip.hintEl.textContent = ui("tooltipTranslationUnavailable");
     }
     return;
   }
@@ -3241,7 +3336,7 @@ async function requestSelectionTranslation(
   }
   tooltip.hintEl.dataset.loading = "true";
   tooltip.hintEl.dataset.kind = "status";
-  tooltip.hintEl.textContent = provider === "llm" ? "语境翻译中..." : "Google 翻译中...";
+  tooltip.hintEl.textContent = provider === "llm" ? ui("tooltipContextTranslating") : ui("tooltipGoogleTranslating");
 
   if (!preservingPreviousResult) {
     resetEnglishExplanationDisplay();
@@ -3272,7 +3367,7 @@ async function requestSelectionTranslation(
       tooltip.translationEl.dataset.transition = "idle";
       tooltip.hintEl.dataset.loading = "false";
       tooltip.hintEl.dataset.kind = "status";
-      tooltip.hintEl.textContent = "翻译暂不可用。";
+      tooltip.hintEl.textContent = ui("tooltipTranslationUnavailable");
     }
     return;
   }
@@ -3401,7 +3496,7 @@ async function speakPronunciation(accent: PronunciationAccent) {
 
     tooltip.hintEl.dataset.visible = "true";
     tooltip.hintEl.dataset.loading = "false";
-    tooltip.hintEl.textContent = response.error ?? "发音暂不可用。";
+    tooltip.hintEl.textContent = response.error ?? ui("tooltipPronunciationUnavailable");
   }
 }
 
@@ -3413,7 +3508,7 @@ async function requestSentenceAnalysis(context: SentenceSelectionContext) {
   tooltip.wordView.dataset.visible = "false";
   tooltip.analysisView.dataset.visible = "true";
   tooltip.closeButton.dataset.visible = "true";
-  tooltip.analysisTitleEl.textContent = "长难句分析";
+  tooltip.analysisTitleEl.textContent = ui("tooltipSentenceAnalysis");
   tooltip.analysisTriggerButton.style.display = "none";
   tooltip.analysisStatusEl.dataset.loading = "true";
   tooltip.analysisStatusEl.textContent = "";
@@ -3455,7 +3550,7 @@ async function requestSentenceAnalysis(context: SentenceSelectionContext) {
     tooltip.analysisStatusEl.dataset.loading = "false";
     tooltip.analysisLoadingEl.dataset.visible = "false";
     tooltip.analysisView.dataset.phase = "idle";
-    tooltip.analysisStatusEl.textContent = response.error ?? "长难句分析暂不可用。";
+    tooltip.analysisStatusEl.textContent = response.error ?? ui("tooltipSentenceAnalysisUnavailable");
     return;
   }
 
@@ -3639,7 +3734,7 @@ tooltip.selectionAnalysisButton.addEventListener("click", async () => {
   if (!isAnalyzableSelectionText(activeSelectionContext.text)) {
     tooltip.hintEl.dataset.visible = "true";
     tooltip.hintEl.dataset.loading = "false";
-    tooltip.hintEl.textContent = "这段内容太短，更适合直接看翻译。";
+    tooltip.hintEl.textContent = ui("tooltipShortSelectionHint");
     return;
   }
 
@@ -3884,6 +3979,22 @@ document.addEventListener("pointerdown", (event) => {
 
   hideTooltip();
   hideSentenceAnalysis();
+});
+
+void refreshLearnerLanguage();
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local" || !(STORAGE_TRANSLATOR_SETTINGS_KEY in changes)) {
+    return;
+  }
+
+  void refreshLearnerLanguage().then(() => {
+    cancelActiveAsyncRequests();
+    if (tooltip.host.style.display === "block") {
+      hideTooltip();
+      hideSentenceAnalysis();
+    }
+  });
 });
 
 document.addEventListener("keydown", (event) => {

@@ -1,0 +1,63 @@
+<svg width="1280" height="420" viewBox="0 0 1280 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="84" y1="58" x2="1194" y2="382" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBF4E8"/>
+      <stop offset="1" stop-color="#F2E4D1"/>
+    </linearGradient>
+    <linearGradient id="line" x1="212" y1="234" x2="1068" y2="234" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E4BF69"/>
+      <stop offset="1" stop-color="#C98E3A"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="420" rx="32" fill="url(#bg)"/>
+  <text x="84" y="84" fill="#14213D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="30" font-weight="700">LexiGlow Core Flow</text>
+  <text x="84" y="116" fill="#5D6979" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="16">Start with a fast default answer, then open deeper help only when it is really needed.</text>
+
+  <path d="M214 234H1064" stroke="url(#line)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M1052 224L1066 234L1052 244" stroke="#C98E3A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g>
+    <rect x="84" y="164" width="238" height="138" rx="24" fill="#FFFDF9" stroke="#E9D9C1"/>
+    <circle cx="116" cy="196" r="18" fill="#14213D"/>
+    <text x="110" y="202" fill="#FFFDF8" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="15" font-weight="700">1</text>
+    <text x="144" y="196" fill="#14213D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="18" font-weight="700">Hover Lookup</text>
+    <text x="108" y="232" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">Open the tooltip in page</text>
+    <text x="108" y="252" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">and read the fast default</text>
+    <text x="108" y="272" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">result first</text>
+  </g>
+
+  <g>
+    <rect x="356" y="164" width="238" height="138" rx="24" fill="#FFFDF9" stroke="#E9D9C1"/>
+    <circle cx="388" cy="196" r="18" fill="#14213D"/>
+    <text x="382" y="202" fill="#FFFDF8" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="15" font-weight="700">2</text>
+    <text x="416" y="196" fill="#14213D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="18" font-weight="700">More Context</text>
+    <text x="380" y="232" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">Switch only when needed</text>
+    <text x="380" y="252" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">if the first answer is</text>
+    <text x="380" y="272" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">not clear enough</text>
+  </g>
+
+  <g>
+    <rect x="628" y="164" width="238" height="138" rx="24" fill="#FFFDF9" stroke="#E9D9C1"/>
+    <circle cx="660" cy="196" r="18" fill="#14213D"/>
+    <text x="654" y="202" fill="#FFFDF8" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="15" font-weight="700">3</text>
+    <text x="688" y="196" fill="#14213D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="17" font-weight="700">Review Again</text>
+    <text x="652" y="232" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">Double-click forgotten</text>
+    <text x="652" y="252" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">words to bring them</text>
+    <text x="652" y="272" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">back into review</text>
+  </g>
+
+  <g>
+    <rect x="900" y="164" width="238" height="138" rx="24" fill="#FFFDF9" stroke="#E9D9C1"/>
+    <circle cx="932" cy="196" r="18" fill="#14213D"/>
+    <text x="926" y="202" fill="#FFFDF8" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="15" font-weight="700">4</text>
+    <text x="960" y="196" fill="#14213D" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="17" font-weight="700">Sentence View</text>
+    <text x="924" y="232" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">Break down phrases and</text>
+    <text x="924" y="252" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">harder sentences inside</text>
+    <text x="924" y="272" fill="#516072" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13.5">the same tooltip view</text>
+  </g>
+
+  <rect x="84" y="330" width="1054" height="56" rx="16" fill="#FFF9EE" stroke="#E8D8C2"/>
+  <text x="108" y="356" fill="#5A6575" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13" font-weight="700">Known words, ignored words, and inflection-aware matching stay in the loop.</text>
+  <text x="108" y="376" fill="#5A6575" font-family="'Avenir Next', 'Segoe UI', sans-serif" font-size="13" font-weight="700">That is why the hints get closer to your real reading state over time.</text>
+</svg>

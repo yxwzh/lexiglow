@@ -1,4 +1,5 @@
 import { lookupRank, resolveLookupLemma } from "../shared/lexicon";
+import { t } from "../shared/i18n";
 import type {
   AnalyzeSelectionMessage,
   GetSettingsMessage,
@@ -64,6 +65,10 @@ import type {
   TranslationResult,
 } from "../shared/types";
 
+function ui(languageCode: string, key: Parameters<typeof t>[1], variables?: Record<string, string | number>) {
+  return t(languageCode, key, variables);
+}
+
 const inFlightTranslations = new Map<string, Promise<TranslationResult>>();
 const inFlightPronunciations = new Map<string, Promise<PronunciationResult>>();
 const inFlightEnglishExplanations = new Map<string, Promise<EnglishExplanationResult>>();
@@ -88,18 +93,22 @@ async function translateByChoice({
   surface,
   contextText,
   responseMode,
+  translatorSettings,
 }: {
   provider: TranslationProviderChoice;
   lemma: string;
   surface: string;
   contextText: string;
   responseMode?: "word" | "sentence";
+  translatorSettings: Awaited<ReturnType<typeof getTranslatorSettings>>;
 }): Promise<TranslationResult> {
   if (provider === "google") {
-    return translateWithGoogle({ lemma, surface });
+    return translateWithGoogle({
+      lemma,
+      surface,
+      learnerLanguageCode: translatorSettings.learnerLanguageCode,
+    });
   }
-
-  const translatorSettings = await getTranslatorSettings();
 
   try {
     return await translateWithLlm({
@@ -113,7 +122,11 @@ async function translateByChoice({
       throw error;
     }
 
-    return translateWithGoogle({ lemma, surface });
+    return translateWithGoogle({
+      lemma,
+      surface,
+      learnerLanguageCode: translatorSettings.learnerLanguageCode,
+    });
   }
 }
 
@@ -125,8 +138,10 @@ async function getOrTranslate(
   responseMode: "word" | "sentence",
 ): Promise<TranslationResult> {
   const translatorSettings = await getTranslatorSettings();
-  const llmCacheSignature = provider === "llm" ? getLlmCacheSignature(translatorSettings) : "google";
-  const cacheProviderKey = `${provider}:${responseMode}:${llmCacheSignature}`;
+  const providerSignature = provider === "llm"
+    ? getLlmCacheSignature(translatorSettings)
+    : `google::${translatorSettings.learnerLanguageCode}`;
+  const cacheProviderKey = `${provider}:${responseMode}:${providerSignature}`;
   const requestKey = `${cacheProviderKey}::${lemma}::${contextText}`;
   const cacheTtlMs = getTranslatorCacheTtlMs(translatorSettings);
   const cached = translationCache.get(requestKey);
@@ -147,7 +162,14 @@ async function getOrTranslate(
   let pending = inFlightTranslations.get(requestKey);
 
   if (!pending) {
-    pending = translateByChoice({ provider, lemma, surface, contextText, responseMode });
+    pending = translateByChoice({
+      provider,
+      lemma,
+      surface,
+      contextText,
+      responseMode,
+      translatorSettings,
+    });
     inFlightTranslations.set(requestKey, pending);
   }
 
@@ -173,8 +195,10 @@ async function getOrTranslateSelection(
   provider: TranslationProviderChoice,
 ): Promise<TranslationResult> {
   const translatorSettings = await getTranslatorSettings();
-  const llmCacheSignature = provider === "llm" ? getLlmCacheSignature(translatorSettings) : "google";
-  const cacheProviderKey = `${provider}:selection-v2:${llmCacheSignature}`;
+  const providerSignature = provider === "llm"
+    ? getLlmCacheSignature(translatorSettings)
+    : `google::${translatorSettings.learnerLanguageCode}`;
+  const cacheProviderKey = `${provider}:selection-v2:${providerSignature}`;
   const requestKey = `selection::${cacheProviderKey}::${text}::${contextText}`;
   const cacheTtlMs = getTranslatorCacheTtlMs(translatorSettings);
   const cached = selectionTranslationCache.get(requestKey);
@@ -194,10 +218,12 @@ async function getOrTranslateSelection(
   if (!pending) {
     pending = (async () => {
       if (provider === "google") {
-        return translateWithGoogle({ lemma: text, surface: text });
+        return translateWithGoogle({
+          lemma: text,
+          surface: text,
+          learnerLanguageCode: translatorSettings.learnerLanguageCode,
+        });
       }
-
-      const translatorSettings = await getTranslatorSettings();
 
       try {
         return await translateSelectionWithLlm({
@@ -210,7 +236,11 @@ async function getOrTranslateSelection(
           throw error;
         }
 
-        return translateWithGoogle({ lemma: text, surface: text });
+        return translateWithGoogle({
+          lemma: text,
+          surface: text,
+          learnerLanguageCode: translatorSettings.learnerLanguageCode,
+        });
       }
     })();
     inFlightTranslations.set(requestKey, pending);
@@ -332,6 +362,7 @@ async function handleTranslateWord(message: TranslateWordMessage): Promise<Lexic
           })()),
     };
   } catch {
+    const translatorSettings = await getTranslatorSettings();
     return {
       lemma,
       surface,
@@ -341,7 +372,7 @@ async function handleTranslateWord(message: TranslateWordMessage): Promise<Lexic
       isKnown: false,
       shouldTranslate: true,
       reason: "translate",
-      translation: "暂不可用",
+      translation: ui(translatorSettings.learnerLanguageCode, "tooltipTranslationUnavailable"),
       sentenceTranslation: undefined,
       englishExplanation: undefined,
       contextualPartOfSpeech: undefined,
@@ -458,7 +489,7 @@ async function handleAnalyzeSelection(
     });
 
     if (/json|parse|format/i.test(messageText)) {
-      throw new Error("长难句分析返回格式不稳定，请重试一次。");
+      throw new Error(ui(translatorSettings.learnerLanguageCode, "errorSentenceAnalysisUnstable"));
     }
 
     throw error;
@@ -474,9 +505,10 @@ async function handleTranslateSelection(
   const contextText = message.payload.contextText?.trim() ?? text;
 
   if (!text) {
+    const translatorSettings = await getTranslatorSettings();
     return {
       text,
-      translation: "暂不可用",
+      translation: ui(translatorSettings.learnerLanguageCode, "tooltipTranslationUnavailable"),
       translationProvider: message.payload.provider === "llm" ? "llm" : "google-web",
       cached: false,
     };
@@ -493,9 +525,10 @@ async function handleTranslateSelection(
       cached: translation.cached,
     };
   } catch {
+    const translatorSettings = await getTranslatorSettings();
     return {
       text,
-      translation: "暂不可用",
+      translation: ui(translatorSettings.learnerLanguageCode, "tooltipTranslationUnavailable"),
       translationProvider: message.payload.provider === "llm" ? "llm" : "google-web",
       cached: false,
     };
@@ -588,9 +621,10 @@ async function handleSpeakPronunciation(
 ): Promise<PronunciationResponse> {
   const text = message.payload.text.trim();
   const accent = message.payload.accent as PronunciationAccent;
+  const learnerLanguageCode = (await getTranslatorSettings()).learnerLanguageCode;
 
   if (!text) {
-    return { ok: false, error: "没有可发音的内容。" };
+    return { ok: false, error: ui(learnerLanguageCode, "errorNoTextToPronounce") };
   }
 
   const voices = await new Promise<chrome.tts.TtsVoice[]>((resolve) => {
@@ -604,12 +638,12 @@ async function handleSpeakPronunciation(
       return {
         ok: false,
         error: accent === "en-US"
-          ? "当前设备没有可用的美式英语语音，已避免使用不匹配口音。"
-          : "当前设备没有可用的英式英语语音，已避免使用不匹配口音。",
+          ? ui(learnerLanguageCode, "errorNoUsVoice")
+          : ui(learnerLanguageCode, "errorNoUkVoice"),
       };
     }
 
-    return { ok: false, error: "当前设备没有可用英语语音。" };
+    return { ok: false, error: ui(learnerLanguageCode, "errorNoEnglishVoice") };
   }
 
   chrome.tts.stop();
@@ -631,7 +665,7 @@ async function handleSpeakPronunciation(
 
         if (event.type === "error") {
           settled = true;
-          reject(new Error(event.errorMessage || "发音播放失败。"));
+          reject(new Error(event.errorMessage || ui(learnerLanguageCode, "errorPronunciationPlaybackFailed")));
           return;
         }
 
